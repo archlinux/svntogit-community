@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Jan Alexander Steffens (heftig)" <heftig@archlinux.org>
+Date: Mon, 12 Dec 2022 00:50:50 +0000
+Subject: [PATCH] Linux 5.15
+
+---
+ xt_FULLCONENAT.c | 19 ++++++++++++++++---
+ 1 file changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/xt_FULLCONENAT.c b/xt_FULLCONENAT.c
+index 8555b54e2dc6..5f4cc5390629 100644
+--- a/xt_FULLCONENAT.c
++++ b/xt_FULLCONENAT.c
+@@ -91,7 +91,9 @@ struct notifier_block ct_event_notifier;
+ struct nf_ct_event_notifier ct_event_notifier;
+ #endif
+ int tg_refer_count = 0;
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
+ int ct_event_notifier_registered = 0;
++#endif
+ 
+ static DEFINE_MUTEX(nf_ct_net_event_lock);
+ 
+@@ -335,8 +337,10 @@ static void gc_worker(struct work_struct *work) {
+ #ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+ static int ct_event_cb(struct notifier_block *this, unsigned long events, void *ptr) {
+   struct nf_ct_event *item = ptr;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
+ static int ct_event_cb(unsigned int events, struct nf_ct_event *item) {
++#else
++static int ct_event_cb(unsigned int events, const struct nf_ct_event *item) {
+ #endif
+   struct nf_conn *ct;
+   struct nf_conntrack_tuple *ct_tuple_reply, *ct_tuple_original;
+@@ -644,40 +648,49 @@ static int fullconenat_tg_check(const struct xt_tgchk_param *par)
+     nf_ct_netns_get(par->net, par->family);
+ #ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+     ct_event_notifier.notifier_call = ct_event_cb;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
+     ct_event_notifier.fcn = ct_event_cb;
+-#endif
+ 
+     if (nf_conntrack_register_notifier(par->net, &ct_event_notifier) == 0) {
+       ct_event_notifier_registered = 1;
+       pr_debug("xt_FULLCONENAT: fullconenat_tg_check(): ct_event_notifier registered\n");
+     } else {
+       printk("xt_FULLCONENAT: warning: failed to register a conntrack notifier. Disable active GC for mappings.\n");
+     }
++#else
++    ct_event_notifier.ct_event = ct_event_cb;
++    nf_conntrack_register_notifier(par->net, &ct_event_notifier);
++    pr_debug("xt_FULLCONENAT: fullconenat_tg_check(): ct_event_notifier registered\n");
++#endif
+ 
+   }
+ 
+   mutex_unlock(&nf_ct_net_event_lock);
+ 
+   return 0;
+ }
+ 
+ static void fullconenat_tg_destroy(const struct xt_tgdtor_param *par)
+ {
+   mutex_lock(&nf_ct_net_event_lock);
+ 
+   tg_refer_count--;
+ 
+   pr_debug("xt_FULLCONENAT: fullconenat_tg_destroy(): tg_refer_count is now %d\n", tg_refer_count);
+ 
+   if (tg_refer_count == 0) {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
+     if (ct_event_notifier_registered) {
+       nf_conntrack_unregister_notifier(par->net, &ct_event_notifier);
+       ct_event_notifier_registered = 0;
+ 
+       pr_debug("xt_FULLCONENAT: fullconenat_tg_destroy(): ct_event_notifier unregistered\n");
+ 
+     }
++#else
++    nf_conntrack_unregister_notifier(par->net);
++    pr_debug("xt_FULLCONENAT: fullconenat_tg_destroy(): ct_event_notifier unregistered\n");
++#endif
+     nf_ct_netns_put(par->net, par->family);
+   }
+ 
