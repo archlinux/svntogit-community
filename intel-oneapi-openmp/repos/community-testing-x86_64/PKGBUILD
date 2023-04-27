@@ -1,0 +1,79 @@
+# Maintainer: Konstantin Gizdov <arch at kge dot pw>
+# Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
+
+pkgname=intel-oneapi-openmp
+pkgver=2023.1.0
+_debpkgrel=46305
+pkgrel=1
+pkgdesc="Intel oneAPI OpenMP runtime library"
+arch=('x86_64')
+url='https://software.intel.com/content/www/us/en/develop/tools/oneapi.html'
+license=("custom")
+source=("https://apt.repos.intel.com/oneapi/pool/main/${pkgname}-${pkgver}-${_debpkgrel}_amd64.deb"
+        "https://apt.repos.intel.com/oneapi/pool/main/${pkgname}-${pkgver}-${pkgver}-${_debpkgrel}_amd64.deb"
+        "https://apt.repos.intel.com/oneapi/pool/main/${pkgname}-common-${pkgver}-${pkgver}-${_debpkgrel}_all.deb"
+        "https://apt.repos.intel.com/oneapi/pool/main/intel-oneapi-runtime-openmp-${pkgver}-${_debpkgrel}_amd64.deb"
+        "https://apt.repos.intel.com/oneapi/pool/main/intel-oneapi-runtime-openmp-common-${pkgver}-${_debpkgrel}_all.deb")
+b2sums=('64bbcc51bd247d8d4447ffec4c1bd442517c095b3a7ea17716d70d3f15808525393fb69ffa4f0d146835e049df09b6082bd8e618005b9a4df051a418215d4912'
+        'a2e231931eb58b4a7cc85dc477bb2b84eff1bb99b86d6a43c22141908c511e2ea5266c3a26062b8deeec3d10033d4eb0de7f8aaabd5b46ee23ec59646f4f67be'
+        '22c708964e4d12248d2e753bf71243dd97e043fbfafa060893fb586260e0a9fe7a709acdb5f7a3c2b2bf73263e42b14a3894eee413784313120e775c76a25522'
+        '2deb358ef0ce22d23ff0764e04a32a8048692c9b1c76dc47f27da46fbccb9a56f2cb001769643dfd14821100deb07025d057607e39905383d5201194b0dea514'
+        'f18519ac7c93fd01a69bd42a193497c4a49d460e259e7819b0ac02256d680f63409084a8af79c9516e6f83d21e93be763d2ef84969a26e0c04b0404458de32d8')
+depends=('intel-oneapi-common' 'intel-oneapi-compiler-dpcpp-cpp-common' 'libelf' 'level-zero-loader' 'libffi')
+noextract=(
+    "${pkgname}-${pkgver}-${_debpkgrel}_amd64.deb"
+    "${pkgname}-${pkgver}-${pkgver}-${_debpkgrel}_amd64.deb"
+    "${pkgname}-common-${pkgver}-${pkgver}-${_debpkgrel}_all.deb"
+    "intel-oneapi-runtime-openmp-${pkgver}-${_debpkgrel}_amd64.deb"
+    "intel-oneapi-runtime-openmp-common-${pkgver}-${_debpkgrel}_all.deb"
+)
+conflicts=('intel-oneapi-basekit')
+
+package() {
+    cd "${srcdir}"
+
+    ar x "${srcdir}/${pkgname}-${pkgver}-${_debpkgrel}_amd64.deb"
+    tar xvf data.tar.xz -C "${pkgdir}"
+    rm data.tar.xz
+
+    ar x "${srcdir}/${pkgname}-${pkgver}-${pkgver}-${_debpkgrel}_amd64.deb"
+    tar xvf data.tar.xz -C "${pkgdir}"
+    rm data.tar.xz
+
+    ar x "${srcdir}/${pkgname}-common-${pkgver}-${pkgver}-${_debpkgrel}_all.deb"
+    tar xvf data.tar.xz -C "${pkgdir}"
+    rm data.tar.xz
+
+    ar x "${srcdir}/intel-oneapi-runtime-openmp-${pkgver}-${_debpkgrel}_amd64.deb"
+    tar xvf data.tar.xz -C "${pkgdir}"
+    rm data.tar.xz
+
+    ar x "${srcdir}/intel-oneapi-runtime-openmp-common-${pkgver}-${_debpkgrel}_all.deb"
+    tar xvf data.tar.xz -C "${pkgdir}"
+    rm data.tar.xz
+
+    # drop conda binaries
+    rm -r "${pkgdir}"/opt/intel/oneapi/conda_channel
+
+    # fix permissions
+    find "${pkgdir}" -type f \( -iname '*.so' -o -iname '*.so.*' \) -exec chmod +x '{}' \;
+
+
+    # fix pkgconfig
+    local _prefix=/opt/intel/oneapi/compiler
+    sed -e "s@prefix=.*@prefix=${_prefix}/latest@g" \
+        -i "${pkgdir}/${_prefix}/${pkgver}"/lib/pkgconfig/openmp.pc
+    install -d "${pkgdir}"/usr/share/pkgconfig
+    ln -s {"${_prefix}"/latest/lib/pkgconfig/,"${pkgdir}"/usr/share/pkgconfig/}openmp.pc
+
+    # ldconfig
+    install -d "${pkgdir}"/etc/ld.so.conf.d
+    echo "${_prefix}"/${pkgver}/"$(sed -n 's/libdir=${prefix}\///p' "${pkgdir}/${_prefix}/${pkgver}"/lib/pkgconfig/openmp.pc)" \
+        > "${pkgdir}/etc/ld.so.conf.d/${pkgname}.conf"
+    echo "/opt/intel/oneapi/lib/intel64" >> "${pkgdir}/etc/ld.so.conf.d/${pkgname}.conf"
+    echo "${_prefix}/latest/linux/compiler/lib/intel64" >> "${pkgdir}/etc/ld.so.conf.d/${pkgname}.conf"
+
+    install -d "${pkgdir}"/usr/share/licenses/"${pkgname}"
+    ln -s /usr/share/licenses/intel-oneapi "${pkgdir}"/usr/share/licenses/"${pkgname}"/oneapi
+    ln -s /opt/intel/oneapi/compiler/"${pkgver}"/licensing/openmp "${pkgdir}"/usr/share/licenses/"${pkgname}"/openmp
+}
