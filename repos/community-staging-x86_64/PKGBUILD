@@ -2,28 +2,41 @@
 
 pkgname=opentimelineio
 pkgver=0.15
-pkgrel=2
+pkgrel=3
 pkgdesc='Open Source API and interchange format for editorial timeline information'
 url='http://opentimeline.io/'
 license=(Apache)
 arch=(x86_64)
 depends=(python-aaf2)
 makedepends=(cmake python-setuptools pybind11 git imath)
-source=(git+https://github.com/PixarAnimationStudios/OpenTimelineIO#tag=v$pkgver)
-sha256sums=('SKIP')
+source=(git+https://github.com/PixarAnimationStudios/OpenTimelineIO#tag=v$pkgver
+        git+https://github.com/Tencent/rapidjson
+        unbundle.patch)
+sha256sums=('SKIP'
+            'SKIP'
+            '1239ca9258b9c828bff3024564d67968e6e2986ecb0d3b4d900320405cc0d197')
 
 prepare() {
   cd OpenTimelineIO
-  git submodule update --init
-  sed -e '/deps/d' -i CMakeLists.txt # Unbundle pybind11
-  sed -e '1 i\find_package(pybind11)' -i src/py-opentimelineio/opentime-bindings/CMakeLists.txt \
-                                      -i src/py-opentimelineio/opentimelineio-bindings/CMakeLists.txt
+
+  git submodule init src/deps/rapidjson
+  git submodule set-url src/deps/rapidjson "$srcdir"/rapidjson
+  git -c protocol.file.allow=always submodule update src/deps/rapidjson
+
+#  git submodule update --init
+#  sed -e '/src\/deps/d' -i CMakeLists.txt # Unbundle pybind11
+#  sed -e '1 i\find_package(pybind11)' -i src/py-opentimelineio/opentime-bindings/CMakeLists.txt \
+#                                      -i src/py-opentimelineio/opentimelineio-bindings/CMakeLists.txt
+#  rm -r src/deps
+  patch -p1 -i ../unbundle.patch # Use C++17 any and optional
 }
 
 build() {
   cmake -B build -S OpenTimelineIO \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DOTIO_FIND_IMATH=ON
+    -DOTIO_FIND_IMATH=ON \
+    -DOTIO_AUTOMATIC_SUBMODULES=OFF \
+    -DOTIO_DEPENDENCIES_INSTALL=OFF
   cmake --build build
 
 # Workaround messy build system
