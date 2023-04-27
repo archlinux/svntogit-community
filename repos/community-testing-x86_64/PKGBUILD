@@ -1,0 +1,102 @@
+# Maintainer: Konstantin Gizdov <arch at kge dot pw>
+# Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
+
+_pkgname='intel-oneapi-compiler-shared'
+pkgbase="${_pkgname}-runtime"
+pkgname=("${_pkgname}-runtime" "${_pkgname}-runtime-libs")
+pkgver=2023.1.0
+_debpkgrel=46305
+pkgrel=1
+_pkgdesc="Intel oneAPI compiler runtime libraries"
+arch=('x86_64')
+url='https://software.intel.com/content/www/us/en/develop/tools/oneapi.html'
+license=("custom")
+depends=('level-zero-loader')
+source=("https://apt.repos.intel.com/oneapi/pool/main/${pkgname}-${pkgver}-${pkgver}-${_debpkgrel}_amd64.deb"
+        "https://apt.repos.intel.com/oneapi/pool/main/${_pkgname}-common-${pkgver}-${pkgver}-${_debpkgrel}_all.deb")
+b2sums=('ad9e815fdf451a4d5bd645f925c05e17f5b358306c7d454bd5ac93e24e7d5e1f9924ee6b81e0d0c4853c4465ee17b1230604f401b2e44db23f597d8f00322f2e'
+        '3f47c8bcfed7b5f993296ffc8c530a0fd431ebde7e2debb528700bd00dfd6fd725d53afd1edc21711d7534297cef80a72926b699c7f045e2262967dfe222af5d')
+
+noextract=(
+    "${pkgname}-${pkgver}-${pkgver}-${_debpkgrel}_amd64.deb"
+    "${_pkgname}-common-${pkgver}-${pkgver}-${_debpkgrel}_all.deb"
+)
+
+prepare() {
+    mkdir "${_pkgname}-${pkgver}"
+    ar x "${srcdir}/${pkgname}-${pkgver}-${pkgver}-${_debpkgrel}_amd64.deb"
+    tar xvf data.tar.xz -C "${_pkgname}-${pkgver}"
+    rm data.tar.xz
+    ar x "${srcdir}/${_pkgname}-common-${pkgver}-${pkgver}-${_debpkgrel}_all.deb"
+    tar xvf data.tar.xz -C "${_pkgname}-${pkgver}"
+    rm data.tar.xz
+}
+
+package_intel-oneapi-compiler-shared-runtime-libs() {
+    depends=('intel-oneapi-common')
+    conflicts=('intel-oneapi-basekit')
+    pkgdesc="${_pkgdesc}: Minimal compiler libraries"
+
+    local _lib_path='/opt/intel/oneapi/compiler'
+    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
+    local _bin
+    for _bin in sycl-ls sycl-post-link; do
+        cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/bin/${_bin}" \
+            "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
+    done
+
+    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler"
+    cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/compiler/include" \
+        "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler"
+
+    cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/compiler/lib" \
+        "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler"
+
+    # add latest and common symlink
+    ln -s "${_lib_path}/${pkgver}" "${pkgdir}/${_lib_path}/latest"
+    ln -s "${_lib_path}/latest/linux/compiler/lib/intel64_lin" \
+          "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler/lib/intel64"
+
+    # allow libs to be found
+    local _ldso_conf="${pkgdir}"/etc/ld.so.conf.d
+    install -d "${_ldso_conf}"
+    echo "${_lib_path}/latest/linux/compiler/lib/intel64_lin" >> "${_ldso_conf}/${pkgname}.conf"
+
+    install -d "${pkgdir}"/usr/share/licenses/"${pkgname}"
+    ln -s /usr/share/licenses/intel-oneapi "${pkgdir}"/usr/share/licenses/"${pkgname}"/oneapi
+}
+
+package_intel-oneapi-compiler-shared-runtime() {
+    depends=('intel-oneapi-openmp' 'intel-oneapi-common' 'intel-oneapi-compiler-shared-runtime-libs')
+    provides=("${_pkgname}-common")
+    conflicts=('intel-oneapi-basekit')
+    pkgdesc="${_pkgdesc}: Shared runtime without OpenCL"
+
+    local _lib_path='/opt/intel/oneapi/compiler'
+    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux"
+    cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/bin-llvm" \
+        "${pkgdir}/${_lib_path}/${pkgver}/linux"
+
+    cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/include" \
+        "${pkgdir}/${_lib_path}/${pkgver}/linux"
+
+    cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/lib" \
+        "${pkgdir}/${_lib_path}/${pkgver}/linux"
+
+    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
+    local _bin
+    for _bin in aocl-ioc64 icx-cc icx-cl icx.cfg ioc64; do
+        cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/bin/${_bin}" \
+            "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
+    done
+
+    # allow libs to be found
+    local _ldso_conf="${pkgdir}"/etc/ld.so.conf.d
+    install -d "${_ldso_conf}"
+    echo "${_lib_path}/latest/linux/lib" > "${_ldso_conf}/${pkgname}.conf"
+    echo "${_lib_path}/latest/linux/lib/x64" >> "${_ldso_conf}/${pkgname}.conf"
+
+    install -d "${pkgdir}"/usr/share/licenses/"${pkgname}"
+    ln -s /usr/share/licenses/intel-oneapi "${pkgdir}"/usr/share/licenses/"${pkgname}"/oneapi
+}
+
