@@ -4,6 +4,7 @@ file_present=false
 asked_for_help=false
 start_server=false
 http_server=false
+force_cli=false
 
 declare -a argv=("$@")
 
@@ -27,6 +28,9 @@ for arg in "$@"; do
   if [[ $arg == --help ]]; then
     asked_for_help=true
     unset argv[$i]
+  fi
+  if [[ $arg ==  --list || $arg == --version ]]; then
+    force_cli=true
   fi
   ((i++))
 done
@@ -61,11 +65,10 @@ else
       "$JAVA_HOME/bin/java" -cp $CP $SSRV_command "${argv[@]}"
     fi
   else
-    if $file_present; then
+    if [[ $file_present || $force_cli ]]; then
       "$JAVA_HOME/bin/java" -cp $CP $CLI_command "${argv[@]}"
     else
       "$JAVA_HOME/bin/java" -cp $CP $GUI_command "${argv[@]}"
     fi
   fi
 fi
-
