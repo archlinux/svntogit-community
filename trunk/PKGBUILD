@@ -4,8 +4,8 @@
 pkgname=python-moto
 _pkgname=moto
 # https://github.com/spulec/moto/blob/master/CHANGELOG.md
-pkgver=4.1.4
-pkgrel=3
+pkgver=4.1.8
+pkgrel=1
 pkgdesc='Moto is a library to mock out the boto library.'
 arch=(any)
 url='https://github.com/spulec/moto'
@@ -21,52 +21,37 @@ depends=(python python-boto3 python-botocore python-cryptography python-requests
          python-urllib3)
 makedepends=(python-build python-installer python-setuptools python-wheel)
 # See reqquirements-test.txt, excluding pytest-cov
-checkdepends=(python-pytest python-sure python-freezegun)
-# Below are optional dependencies. The order matches _dep_* items in upstream `setup.cfg`.
-# Note that _dep_python_jose_ecdsa_pin and _dep_idna are excluded as they are pins and
-# not used by moto.
+checkdepends=(python-pytest python-pytest-ordering python-sure python-freezegun)
+# Check extras_require in upstream `setup.cfg` for optional dependencies.
+# Note that ecdsa is excluded as it is pinned for jose and not used by moto.
 optdepends=(
   'python-yaml: for apigatewayv2, cloudformation, s3 and ssm'
   'python-jose: for apigateway, cloudformation and cognitoidp'
   'python-openapi-spec-validator: for apigateway and cloudformation'
   # SNS and SQS still uses docker indirectly, while upstream explicitly removes them
   # https://github.com/spulec/moto/pull/4094
-  'python-docker: for awslambda, batch, cloudformation, dynamodb2 and dynamodbstreams'
+  'python-docker: for awslambda, batch, cloudformation, dynamodb and dynamodbstreams'
   'python-graphql-core: For appsync and cloudformation'
   'python-jsondiff: for iotdata and cloudformation'
   'python-aws-xray-sdk: for xray and cloudformation'
   'python-cfn-lint: for cloudformation'
-  'python-sshpubkeys: for ec2, ebs, efs, directoryservice and cloudformation'
+  'python-sshpubkeys: for cloudformation, directoryservice, ebs, ec2, efs, eks and route53resolver'
   'python-pyparsing: for glue and cloudformation'
+  'python-py-partiql-parser: for cloudformation and s3'
   'python-flask: for moto_server'
   'python-flask-cors: for moto_server'
 )
 checkdepends+=(python-yaml python-jose python-openapi-spec-validator python-docker
                python-graphql-core python-jsondiff python-aws-xray-sdk
-               python-cfn-lint python-sshpubkeys python-pyparsing python-flask python-flask-cors)
+               python-cfn-lint python-sshpubkeys python-pyparsing python-py-partiql-parser
+               python-flask python-flask-cors)
 source=("https://files.pythonhosted.org/packages/source/m/moto/moto-${pkgver}.tar.gz")
-sha256sums=('304cb19eee0019cd13f7d87ca590a4694677469c383ab8f8439fcb6717c47037')
+sha256sums=('c3ecc2dda1a7b3a3c46655490bc6a4660b7bb47e31eaed7bbd54adeb01f8471f')
 
 prepare() {
   cd $_pkgname-$pkgver
 
-  cp setup.cfg{,.orig}
-
-  # AWS Lambda and Batch tests require docker/podman, while running docker/podman
-  # in systemd-nspawn containers appears impossible without special configurations -
-  # disable them altogether
-  sed -i '/markers\s*=/a \ \ \ \ needs_docker: marks test which require docker' setup.cfg
-  find tests \( -name '*.py' -a ! -name __init__.py \) -print0 | xargs -I % -0 bash -c '
-    sed -i -E "%" \
-      -e "/__future__/a import pytest" \
-      -e "s/^(\s*)(@mock_batch)$/\1\2\n\1@pytest.mark.needs_docker/" \
-      -e "s/^(\s*)(@mock_lambda)$/\1\2\n\1@pytest.mark.needs_docker/"
-    grep __future__ "%" || sed -i "1i import pytest" "%"
-  '
-
-  # Remove upper bounds of dependencies
-  sed -i -r 's#,?<[0-9.]+,?##;s#==([0-9.]+)#>=\1#' setup.cfg
-  diff -u setup.cfg{.orig,} || true
+  patch -Np1 -i ../fix-tests.diff
 }
 
 build() {
@@ -78,7 +63,7 @@ build() {
 check() {
   cd $_pkgname-$pkgver
 
-  PYTHONDONTWRITEBYTECODE=1 TZ=UTC pytest tests -m 'not needs_docker'
+  PYTHONDONTWRITEBYTECODE=1 TZ=UTC pytest tests -m 'not requires_docker'
 }
 
 package() {
