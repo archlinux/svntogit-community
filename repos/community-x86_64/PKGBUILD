@@ -14,7 +14,7 @@ pkgdesc='The Open Source build of Visual Studio Code (vscode) editor'
 # Important: Remember to check https://github.com/microsoft/vscode/blob/master/.yarnrc (choose correct tag) for target electron version
 _electron=electron19
 pkgver=1.77.3
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url='https://github.com/microsoft/vscode'
 license=('MIT')
@@ -22,16 +22,18 @@ depends=($_electron 'libsecret' 'libx11' 'libxkbfile' 'ripgrep')
 optdepends=('bash-completion: Bash completions'
             'zsh-completions: ZSH completitons'
             'x11-ssh-askpass: SSH authentication')
-makedepends=('git' 'gulp' 'npm' 'python' 'yarn' 'nodejs-lts-gallium')
+makedepends=('git' 'gulp' 'npm' 'python' 'yarn' 'nodejs-lts-gallium' 'desktop-file-utils')
 provides=('vscode')
 source=("$pkgname::git+$url.git#tag=$pkgver"
         'code.js'
         'code.sh'
-        'product_json.diff')
+        'product_json.diff'
+        'clipath.patch')
 sha512sums=('SKIP'
             '6e8ee1df4dd982434a8295ca99e786a536457c86c34212546e548b115081798c5492a79f99cd5a3f1fa30fb71d29983aaabc2c79f4895d4a709d8354e9e2eade'
             'f949779dde4e3fe72f8a62db20edffc3e093c7209981e089f91e7d369274639a66b8cbf95cbdea4f3ea36e219d91e0abadb30f9c8e19e37d6077f9545e55a9a0'
-            'b1aa0d7c5b3e3e8ba1172822d75ea38e90efc431b270e0b4ca9e45bf9c0be0f60922c8618969ef071b5b6dbd9ac9f030294f1bf49bcc28c187b46d113dca63a7')
+            'b1aa0d7c5b3e3e8ba1172822d75ea38e90efc431b270e0b4ca9e45bf9c0be0f60922c8618969ef071b5b6dbd9ac9f030294f1bf49bcc28c187b46d113dca63a7'
+            '53c68ed0a4bffa4b19e5ca3de8322870611bca790db84ad60033f1a6ca79d2d95ddd00cfceec2ff4e922240537b5d002c6385e083cf1d0e69df867b5e1d8e197')
 
 # Even though we don't officially support other archs, let's
 # allow the user to use this PKGBUILD to compile the package
@@ -59,7 +61,7 @@ prepare() {
   sed -e "s|name=electron|name=$_electron |" \
       -e '/PKGBUILD/d' \
       -i ../code.sh
-  sed "s|#!/usr/bin/electron|#!/usr/bin/$_electron|" -i ../code.js
+  sed "1s|.*|#!/usr/lib/$_electron/electron|" -i ../code.js
 
   # This patch no longer contains proprietary modifications.
   # See https://github.com/Microsoft/vscode/issues/31168 for details.
@@ -85,7 +87,10 @@ prepare() {
           s|@@URLPROTOCOL@@|vscode|g
           s|inode/directory;||' resources/linux/code{.appdata.xml,.desktop,-url-handler.desktop}
 
-  sed -i 's|MimeType=.*|MimeType=x-scheme-handler/code-oss;|' resources/linux/code-url-handler.desktop
+  desktop-file-edit --set-key StartupWMClass --set-value code-oss resources/linux/code.desktop
+
+  cp resources/linux/{code,code-oss}-url-handler.desktop
+  desktop-file-edit --set-key MimeType --set-value x-scheme-handler/code-oss resources/linux/code-oss-url-handler.desktop
 
   # Add completitions for code-oss
   cp resources/completions/bash/code resources/completions/bash/code-oss
@@ -95,10 +100,7 @@ prepare() {
   sed -i 's|@@APPNAME@@|code|g' resources/completions/{bash/code,zsh/_code}
   sed -i 's|@@APPNAME@@|code-oss|g' resources/completions/{bash/code-oss,zsh/_code-oss}
 
-  # Fix bin path
-  sed -i "s|return path.join(path.dirname(execPath), 'bin', \`\${product.applicationName}\`);|return '/usr/bin/code';|g
-          s|return path.join(appRoot, 'scripts', 'code-cli.sh');|return '/usr/bin/code';|g" \
-          src/vs/platform/environment/node/environmentService.ts
+  patch -p1 -i "$srcdir/clipath.patch"
 }
 
 build() {
@@ -120,12 +122,13 @@ package() {
   # Install binary
   install -Dm 755 code.sh "$pkgdir"/usr/bin/code-oss
   install -Dm 755 code.js "$pkgdir"/usr/lib/$pkgname/code.js
-  ln -sf /usr/bin/code-oss "$pkgdir"/usr/bin/code
+  ln -sf code-oss "$pkgdir"/usr/bin/code
 
   # Install appdata and desktop file
   install -Dm 644 $pkgname/resources/linux/code.appdata.xml "$pkgdir"/usr/share/metainfo/code-oss.appdata.xml
   install -Dm 644 $pkgname/resources/linux/code.desktop "$pkgdir"/usr/share/applications/code-oss.desktop
-  install -Dm 644 $pkgname/resources/linux/code-url-handler.desktop "$pkgdir"/usr/share/applications/code-oss-url-handler.desktop
+  install -Dm 644 $pkgname/resources/linux/code-url-handler.desktop "$pkgdir"/usr/share/applications/code-url-handler.desktop
+  install -Dm 644 $pkgname/resources/linux/code-oss-url-handler.desktop "$pkgdir"/usr/share/applications/code-oss-url-handler.desktop
   install -Dm 644 VSCode-linux-$_vscode_arch/resources/app/resources/linux/code.png "$pkgdir"/usr/share/pixmaps/com.visualstudio.code.oss.png
 
   # Install bash and zsh completions
