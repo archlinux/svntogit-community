@@ -6,8 +6,8 @@
 # Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
-pkgver=8.13.0
-pkgrel=2
+pkgver=8.13.1
+pkgrel=1
 pkgdesc='Enhanced Interactive Python shell'
 arch=('any')
 url=https://ipython.org
@@ -25,9 +25,9 @@ optdepends=('python-black: to auto format with Black'
             'yapf: to auto format with YAPF')
 source=("https://files.pythonhosted.org/packages/source/${pkgname::1}/$pkgname/$pkgname-$pkgver.tar.gz"
         "IPython-icon.png::https://www.packal.org/sites/default/files/public/styles/icon_large/public/workflow-files/nkeimipynbworkflow/icon/icon.png")
-sha256sums=('8d56026b882958db8eab089654f0c045d1237622313a1506da136fb0cce4270f'
+sha256sums=('9c8487ac18f330c8a683fc50ab6d7bc0fcf9ef1d7a9f6ce7926938261067b81f'
             '3c44a6fa1e3a8afc24754c90469404770b639cb960361988999a4cdd677699d8')
-b2sums=('038b4af8c5f9b32c9a2a1152e9a48131ae46f2903435f50fe67aeabfed7d34daf3f3439af372e561812c88bd6b90d7c729d4d876fe8b6e093582004def5058b7'
+b2sums=('6d09ba56acbb20b367a1e3be163a63343f56fad7d62c2ec76c9ae2012d5884f534ae9e9eaac501cbc94c3d4ffb6eb599eb568d5fa57ab3af56efeec8d094343b'
         'd445e2bc7a037db8715ea103611720e965987e155c32e445b0ef783e519fca8a0301b16c5763fd9a5d8d169c3b0d7b4db6c0bd0f9772842258b135dcb1d6d5a2')
 
 build() {
