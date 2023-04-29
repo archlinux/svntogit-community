@@ -7,7 +7,7 @@
 pkgbase=godot
 pkgname=(godot)
 pkgver=4.0.2
-pkgrel=4
+pkgrel=5
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org/'
 license=(MIT)
@@ -15,7 +15,7 @@ arch=(x86_64)
 makedepends=(alsa-lib pulseaudio scons yasm)
 depends=(embree3 freetype2 graphite harfbuzz harfbuzz-icu libglvnd libspeechd
          libsquish libtheora libvorbis libwebp libwslay libxcursor libxi
-         libxinerama libxrandr mbedtls miniupnpc pcre2)
+         libxinerama libxrandr mbedtls2 miniupnpc pcre2)
 optdepends=(pipewire-alsa pipewire-pulse)
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
 b2sums=('56069525ee31d6750c6c0107a58e8cb90ad0d06d5a521c127dbe5ba102577a1a8a906ac2c2eeb250156ad3ffbd5c3c3d2c3a590cfd2240ddc2b004b8e8dff208')
@@ -35,9 +35,9 @@ build() {
   #  AUR: libwebm, rvo2
   #  recastnavigation, xatlas
   scons -j$(nproc --all) \
-    CFLAGS="$CFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
-    CXXFLAGS="$CXXFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
-    LINKFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS -fPIC -Wl,-z,relro,-z,now -w -I/usr/include/mbedtls2" \
+    CXXFLAGS="$CXXFLAGS -fPIC -Wl,-z,relro,-z,now -w -I/usr/include/mbedtls2" \
+    LINKFLAGS="$LDFLAGS -L/usr/lib/mbedtls2" \
     arch=$CARCH \
     builtin_embree=no \
     builtin_enet=yes \
