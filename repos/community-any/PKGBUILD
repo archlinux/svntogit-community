@@ -2,7 +2,7 @@
 
 pkgname=npm
 pkgver=8.19.2
-pkgrel=1
+pkgrel=2
 pkgdesc='A package manager for javascript'
 arch=('any')
 url='https://www.npmjs.com/'
@@ -31,7 +31,7 @@ build() {
 
 package() {
   cd cli-$pkgver
-  node bin/npm-cli.js install -g -f --prefix="$pkgdir/usr" $(node bin/npm-cli.js pack | tail -1)
+  node bin/npm-cli.js install -g -f --prefix="$pkgdir/usr" "$(node bin/npm-cli.js pack | tail -1)"
 
   # Non-deterministic race in npm gives 777 permissions to random directories.
   # See https://github.com/npm/npm/issues/9359 for details.
@@ -42,17 +42,22 @@ package() {
   chown -R root:root "$pkgdir"
 
   # Experimental dedup
-  _npmdir="$pkgdir"/usr/lib/node_modules/$pkgname
+  local _npmdir="$pkgdir"/usr/lib/node_modules/$pkgname
   rm -r "$_npmdir"/node_modules/{,.bin/}semver
   rm -r "$_npmdir"/node_modules/{,.bin/}node-gyp
   rm -r "$_npmdir"/node_modules/{,.bin/}nopt
   sed -i 's|../../node_modules/node-gyp/bin/node-gyp.js|../../../node-gyp/bin/node-gyp.js|' \
     "$_npmdir"/bin/node-gyp-bin/node-gyp
 
-  install -dm755 "$pkgdir"/usr/share/bash-completion/completions
+  install -d "$pkgdir"/usr/share/bash-completion/completions
   node "$srcdir"/cli-$pkgver/bin/npm-cli.js completion > "$pkgdir"/usr/share/bash-completion/completions/npm
 
-  mv "$pkgdir"/usr/lib/node_modules/npm/man "$pkgdir"/usr/share/
+  for mandir in "$pkgdir"/usr/lib/node_modules/npm/man/man?; do
+    local dst="$pkgdir"/usr/share/man/"$(basename "$mandir")"
+    gzip "$mandir"/*
+    install -d "$dst"
+    ln -r -s "$mandir"/* "$dst"
+  done
 
   install -Dm644 "$srcdir"/cli-$pkgver/LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
