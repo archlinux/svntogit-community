@@ -1,0 +1,104 @@
+# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Contributor: Ionut Biru <ibiru@archlinux.org>
+# Contributor: Michael Kanis <mkanis_at_gmx_dot_de>
+
+pkgname=mutter43
+pkgver=43.5
+pkgrel=1
+pkgdesc="Window manager and compositor for GNOME"
+url="https://gitlab.gnome.org/GNOME/mutter"
+arch=(x86_64)
+license=(GPL)
+depends=(
+  colord
+  dconf
+  gnome-desktop
+  gnome-settings-daemon
+  graphene
+  gsettings-desktop-schemas
+  lcms2
+  libcanberra
+  libgudev
+  libinput
+  libsm
+  libsysprof-capture
+  libxkbcommon-x11
+  libxkbfile
+  pipewire
+  startup-notification
+  xorg-xwayland
+)
+makedepends=(
+  egl-wayland
+  git
+  gobject-introspection
+  meson
+  sysprof
+  wayland-protocols
+  xorg-server
+)
+checkdepends=(
+  python-dbusmock
+  wireplumber
+  xorg-server-xvfb
+  zenity
+)
+provides=(libmutter-11.so)
+conflicts=(mutter)
+_commit=eedb556bb42a3de1423ec77ca11b7f014462c9e7  # tags/43.5^0
+source=("git+https://gitlab.gnome.org/GNOME/mutter.git#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd mutter
+  git describe --tags | sed 's/[^-]*-g/r&/;s/-/+/g'
+}
+
+prepare() {
+  cd mutter
+
+  # Fix crash on resume from suspend
+  # https://gitlab.gnome.org/GNOME/mutter/-/issues/2570
+  git cherry-pick -n c1ab3f39d73a041b488acf7296456840fa83c0da
+}
+
+build() {
+  local meson_options=(
+    -D egl_device=true
+    -D installed_tests=false
+    -D wayland_eglstream=true
+  )
+
+  CFLAGS="${CFLAGS/-O2/-O3} -fno-semantic-interposition"
+  LDFLAGS+=" -Wl,-Bsymbolic-functions"
+
+  arch-meson mutter build "${meson_options[@]}"
+  meson compile -C build
+}
+
+_check() (
+  export XDG_RUNTIME_DIR="$PWD/rdir" GSETTINGS_SCHEMA_DIR="$PWD/build/data"
+  mkdir -p -m 700 "$XDG_RUNTIME_DIR"
+  glib-compile-schemas "$GSETTINGS_SCHEMA_DIR"
+
+  pipewire &
+  _p1=$!
+
+  wireplumber &
+  _p2=$!
+
+  trap "kill $_p1 $_p2; wait" EXIT
+
+  meson test -C build --print-errorlogs -t 3
+)
+
+check() {
+  dbus-run-session xvfb-run -s '-nolisten local +iglx -noreset' \
+    bash -c "$(declare -f _check); _check"
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+}
+
+# vim:set sw=2 sts=-1 et:
