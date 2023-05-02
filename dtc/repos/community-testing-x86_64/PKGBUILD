@@ -3,35 +3,43 @@
 
 pkgname=dtc
 pkgver=1.7.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Device Tree Compiler'
 url='https://www.devicetree.org/'
 arch=(x86_64)
 license=(GPL2)
 depends=(libyaml)
-makedepends=(swig)
+makedepends=(meson swig python-setuptools-scm)
 checkdepends=(valgrind)
-source=(https://www.kernel.org/pub/software/utils/dtc/dtc-$pkgver.tar.xz)
-sha256sums=('29edce3d302a15563d8663198bbc398c5a0554765c83830d0d4c0409d21a16c4')
+source=(https://www.kernel.org/pub/software/utils/dtc/dtc-$pkgver.tar.xz
+        fix_test.patch::https://github.com/dgibson/dtc/commit/32174a66efa4ad19fc6a2a6422e4af2ae4f055cb.patch
+	fix_meson_version.patch::https://github.com/dgibson/dtc/commit/64a907f08b9bedd89833c1eee674148cff2343c6.patch
+	fix_meson_version2.patch::https://github.com/dgibson/dtc/pull/95.patch
+        pyscm.patch)
+sha256sums=('29edce3d302a15563d8663198bbc398c5a0554765c83830d0d4c0409d21a16c4'
+            '4538d60e5837cc1b7ead839eab2062a8677cf1ee7582fed76d3c4f043b3c0765'
+            '31ba6e7191cdb88a12f3ffa3016006cdc820c7588a54214e34326a67b68bd984'
+            '1c6f13e57e4b635a21dbb6b515e556bb9d28564b6f119edd852e41c019410bb6'
+            '3198c9e41cbebb0bcd9caa5de0940ccaf02b3b3bcc00fbc19bfdf3cdb8a075bb')
 
 prepare() {
   cd dtc-$pkgver
-  sed -i 's/-Werror//' Makefile
+  patch -Np1 < ../fix_test.patch
+  patch -Np1 < ../fix_meson_version.patch
+  patch -Np1 < ../fix_meson_version2.patch
+  patch -Np1 < ../pyscm.patch
+  sed -i "s/@VERSION@/$pkgver/" setup.py
 }
 
 build() {
-  cd dtc-$pkgver
-  # python build fails as it requires a lot of extra dependencies.
-  # someone with more python experience needs to look at the proper way to build the python extension.
-  NO_PYTHON=1 make
+  arch-meson dtc-$pkgver build
+  meson compile -C build
 }
 
 check() {
-  cd dtc-$pkgver
-  NO_PYTHON=1 make check
+  meson test -C build --print-errorlogs
 }
 
 package() {
-  cd dtc-$pkgver
-  NO_PYTHON=1 DESTDIR="$pkgdir" make SETUP_PREFIX="$pkgdir/usr" PREFIX="$pkgdir/usr" install
+  meson install -C build --destdir "$pkgdir"
 }
