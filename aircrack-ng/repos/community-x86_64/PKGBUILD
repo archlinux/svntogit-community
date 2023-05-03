@@ -8,7 +8,7 @@
 pkgname=aircrack-ng
 _pkgver=1.7
 pkgver=${_pkgver//-/}
-pkgrel=2
+pkgrel=3
 pkgdesc="Key cracker for the 802.11 WEP and WPA-PSK protocols"
 arch=('x86_64')
 url="https://www.aircrack-ng.org"
