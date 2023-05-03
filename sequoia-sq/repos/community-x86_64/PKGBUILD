@@ -4,7 +4,7 @@
 pkgname=sequoia-sq
 pkgver=0.29.0
 _commit=bc9bc72fd670eda6bba973352b8053d67b1a180a  # refs/tags/v0.29.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Command-line frontends for Sequoia'
 url='https://sequoia-pgp.org/'
 arch=('x86_64')
@@ -51,7 +51,7 @@ build() {
 check() {
   cd $pkgname
   export RUSTUP_TOOLCHAIN=stable
-  cargo build --release --frozen --features 'default'
+  cargo test --release --frozen --features 'default'
 }
 
 package() {
