@@ -65,7 +65,7 @@ else
       "$JAVA_HOME/bin/java" -cp $CP $SSRV_command "${argv[@]}"
     fi
   else
-    if [[ $file_present || $force_cli ]]; then
+    if ( $file_present || $force_cli ); then
       "$JAVA_HOME/bin/java" -cp $CP $CLI_command "${argv[@]}"
     else
       "$JAVA_HOME/bin/java" -cp $CP $GUI_command "${argv[@]}"
