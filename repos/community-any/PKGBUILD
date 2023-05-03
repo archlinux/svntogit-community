@@ -4,7 +4,7 @@
 pkgname=python-ptyprocess
 _pkgname=ptyprocess
 pkgver=0.7.0
-pkgrel=4
+pkgrel=5
 pkgdesc="Run a subprocess in a pseudo terminal"
 url="https://github.com/pexpect/ptyprocess"
 arch=('any')
