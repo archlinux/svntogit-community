@@ -2,7 +2,7 @@
 
 pkgname=python-pyjwt
 pkgver=2.6.0
-pkgrel=1
+pkgrel=2
 pkgdesc='JSON Web Token implementation in Python'
 arch=('any')
 url='https://github.com/jpadilla/pyjwt'
