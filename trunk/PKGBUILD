@@ -6,8 +6,8 @@
 # NOTE: sonames change on each release, so *all* dependent packages have to be rebuilt!
 pkgbase=gnuradio
 pkgname=(gnuradio gnuradio-companion)
-pkgver=3.10.5.1
-pkgrel=2
+pkgver=3.10.6.0
+pkgrel=1
 pkgdesc="General purpose DSP and SDR toolkit with drivers for usrp and fcd."
 arch=(x86_64)
 url="https://gnuradio.org"
@@ -22,13 +22,11 @@ depends=(
   libuhd  # gnuradio.uhd
   libunwind
   libvolk  # host
-  pybind11  # host
   python-click  # host
   python-click-plugins  # host
   python-mako  # host
   python-matplotlib
   python-numpy  # host
-  python-packaging  # host
   # python-pygccxml  # gnuradio.modtool  # TODO: package
   python-pyyaml  # various
   python-pyzmq  # gnuradio.zeromq
@@ -51,9 +49,11 @@ makedepends=(
   libiio  # gnuradio.iio
   libsndfile  # host
   portaudio  # gnuradio.audio
+  pybind11
   python-cairo  # gnuradio.companion
   python-gobject  # gnuradio.companion
   python-lxml  # gnuradio.companion
+  python-packaging
   python-pyqt5  # gnuradio.qtgui
   python-pyqtgraph  # gnuradio.qtgui
   python-pytest  # only required for tests
@@ -69,6 +69,7 @@ checkdepends=(
 source=(
   $pkgbase-$pkgver.tar.gz::https://github.com/$pkgbase/$pkgbase/archive/v$pkgver/$pkgbase-v$pkgver.tar.gz
   https://github.com/gnuradio/gnuradio/releases/download/v$pkgver/$pkgbase-$pkgver.tar.gz.asc
+  https://github.com/gnuradio/gnuradio/commit/7c87800f.patch
   21-fcd.rules
 )
 validpgpkeys=(
@@ -76,12 +77,18 @@ validpgpkeys=(
   'D74F9F146E7F755783583158B343B2BA293E5174'  # Marcus Müller (GNU Radio Maintainer) <mmueller@gnuradio.org>
   '723EC3A2B90533C6B93DFBC8ED797743F7951435'  # GNU Radio (Software Signing Key) <info@gnuradio.org>
 )
-sha512sums=('37b8101baa7e6adbb60b55aedf2c951e75b14ef97091d967ab717eae699e014bd91c18fe7bf32117bbc5c0a3e0e44015be1c8d83177f9a3751893b49fb860df6'
+sha512sums=('cece65d6f35e1430e702a5c012146e61cc1d000432085cb2603d42fb1a7cdbf8dfe29299f834ba6b1970109ecae28ffa71f38e2aeb844e66cb337fb17aa4cffd'
             'SKIP'
+            '8aa900e9d7ec456018e73290a1ebbdcb00333862a6c0dc23f8c43db015a0c6dc23a027c52bf67203cb7486b1fb181817875fc0747602c28f5ab418af5607f741'
             '6f02dc8e20a7a1cd11099c851a7c8427fcd21e9652e6cddd0a72ca747b0e93cd4fd1b7b7b7e426b6231348bcc34fb2417716a2f03c92ec141889edc65031c3a0')
-b2sums=('f43a1e36e184adb1bb09b4c2e7ee0f40ec4395acec676861473cb9d1856819bf52098d5c3b9c11c025a992da33c6de032aefee2c11a0acb18f73df283a9c8b56'
+b2sums=('df246dac7277b99a398cbdb2460d98b0ed625f36a687abfdb87567436788fc14bd38f962c4a08df18edcbf1f5b258f37cd8f715dd3e71090aabc495bf140771e'
         'SKIP'
+        '93744fad89c09c3bf2e3e7b031f475abd1d6cd20eff8ef84655b8b08283f532227b68384b969f267baf16a640e52a6d18b27e01adc6f9fc9647dfbdd92f5b689'
         '83657a141a7a4fc52ae62e19b480fd7b7e651efffc2186d3eb96e8612beffbbe71b434a2323ae37c74465ff6a959a4ca1f9c9db5ed02ab641f1784e704ab5f4d')
+
+prepare() {
+ patch -d $pkgbase-$pkgver -Rp1 < 7c87800f.patch # Revert change that breaks intalling data
+}
 
 build() {
   local cmake_options=(
