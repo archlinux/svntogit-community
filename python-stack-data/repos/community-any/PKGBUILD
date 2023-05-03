@@ -3,7 +3,7 @@
 _name=stack_data
 pkgname=python-stack-data
 pkgver=0.6.2
-pkgrel=4
+pkgrel=5
 pkgdesc='Extract data from python stack frames and tracebacks for informative displays'
 arch=('any')
 url=https://github.com/alexmojaki/stack_data
