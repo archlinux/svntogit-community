@@ -1,0 +1,63 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=check-jsonschema
+pkgver=0.22.0
+pkgrel=2
+pkgdesc="A JSON Schema CLI and pre-commit hook built on jsonschema"
+arch=(any)
+url="https://github.com/python-jsonschema/check-jsonschema"
+license=(Apache)
+depends=(
+  python
+  python-click
+  python-jsonschema
+  python-requests
+  python-ruamel-yaml
+)
+makedepends=(
+  python-build
+  python-installer
+  python-setuptools
+  python-wheel
+)
+checkdepends=(
+  python-pytest
+  python-pytest-xdist
+  python-responses
+)
+source=(
+  # no tests in sdist tarballs
+  # https://github.com/python-jsonschema/check-jsonschema/issues/258
+  # https://files.pythonhosted.org/packages/source/${pkgname::1}/$pkgname/$pkgname-$pkgver.tar.gz
+  $url/archive/$pkgver/$pkgname-$pkgver.tar.gz
+)
+sha512sums=('c10ce6bbf19a2f46fa10a6d274160e17ecaf615761779c1867f0b24f0c669023c5009f8da370e2777a6a45216719ec5c8090a88cabb806d4bc3e007de608c899')
+b2sums=('c7dbce86b44bb7e6a8b41379ce120a87d1d756ed19ef810e66621da3b882def9d7b00beb7325db661a10bc8858c4c546005e233101275859ccc3251b751f79ea')
+
+check() {
+  # we don't support pinning
+  sed -e 's/==/>=/g' -i $pkgname-$pkgver/setup.cfg
+}
+
+build() {
+  cd $pkgname-$pkgver
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  local pytest_options=(
+    -vv
+  )
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $pkgname-$pkgver
+  # install to temporary location, as importlib is used
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="$PWD/test_dir/$site_packages:$PYTHONPATH"
+  pytest "${pytest_options[@]}"
+}
+
+package() {
+  cd $pkgname-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+}
