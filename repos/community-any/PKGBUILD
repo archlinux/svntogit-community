@@ -4,7 +4,7 @@
 
 pkgname=python-nbsphinx
 pkgver=0.8.11
-pkgrel=1
+pkgrel=2
 pkgdesc="Jupyter Notebook Tools for Sphinx"
 url="http://nbsphinx.rtfd.org/"
 arch=(any)
