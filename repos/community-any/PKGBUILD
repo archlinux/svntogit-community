@@ -3,7 +3,7 @@
 
 pkgname=python-colorama
 pkgver=0.4.6
-pkgrel=1
+pkgrel=2
 pkgdesc="Python API for cross-platform colored terminal text."
 arch=('any')
 url="https://pypi.python.org/pypi/colorama"
