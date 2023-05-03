@@ -3,7 +3,7 @@
 
 pkgname=python-hatchling
 pkgver=1.14.0
-pkgrel=3
+pkgrel=4
 pkgdesc="A modern project, package, and virtual env manager (backend)"
 arch=('any')
 url="https://github.com/pypa/hatch"
