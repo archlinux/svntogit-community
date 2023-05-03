@@ -2,7 +2,7 @@
 
 pkgname=python-dict2xml
 pkgver=1.7.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Small utility to convert a python dictionary into an XML string"
 arch=('any')
 url="https://github.com/delfick/python-dict2xml"
