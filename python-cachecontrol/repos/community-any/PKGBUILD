@@ -4,7 +4,7 @@
 _name=cachecontrol
 pkgname=python-cachecontrol
 pkgver=0.12.11
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc="httplib2 caching for requests"
 arch=(any)
