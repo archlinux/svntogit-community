@@ -2,7 +2,7 @@
 
 pkgname=python-sphinxcontrib-towncrier
 pkgver=0.3.2a0
-pkgrel=4
+pkgrel=5
 pkgdesc="An RST directive for injecting a Towncrier-generated changelog draft containing fragments for the unreleased (next) project version"
 url="https://github.com/sphinx-contrib/sphinxcontrib-towncrier"
 license=('BSD')
