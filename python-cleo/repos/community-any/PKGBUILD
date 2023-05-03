@@ -4,7 +4,7 @@
 _pkgname=cleo
 pkgname=python-cleo
 pkgver=2.0.1
-pkgrel=3
+pkgrel=4
 pkgdesc="create beautiful and testable command-line interfaces"
 arch=(any)
 url="https://github.com/python-poetry/$_pkgname"
