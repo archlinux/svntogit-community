@@ -3,7 +3,7 @@
 
 pkgname=python-msgpack
 pkgver=1.0.4
-pkgrel=1
+pkgrel=2
 pkgdesc='MessagePack serializer implementation for Python'
 
 url='https://github.com/msgpack/msgpack-python'
