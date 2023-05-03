@@ -3,13 +3,13 @@
 pkgname=python-anyio
 # https://github.com/agronholm/anyio/blob/master/docs/versionhistory.rst
 pkgver=3.6.2
-pkgrel=1
+pkgrel=4
 pkgdesc='High level compatibility layer for multiple asynchronous event loop implementations'
 arch=(any)
 url='https://github.com/agronholm/anyio'
 license=(MIT)
 depends=(python python-idna python-sniffio)
-makedepends=(python-setuptools python-setuptools-scm
+makedepends=(python-build python-installer python-setuptools python-setuptools-scm python-wheel
              python-uvloop python-trio)
 checkdepends=(python-pytest python-trustme python-hypothesis python-pytest-mock)
 optdepends=(
@@ -18,8 +18,10 @@ optdepends=(
   'python-uvloop: use uvloop for asyncio backend'
   'python-pytest: pytest plugin'
 )
-source=(https://github.com/agronholm/anyio/archive/$pkgver/anyio-$pkgver.tar.gz)
-sha256sums=('befe8a0e100f6a92ad1b15a6e4adc86bb5f1e055f09b125090300ade5b33534d')
+source=(https://github.com/agronholm/anyio/archive/$pkgver/anyio-$pkgver.tar.gz
+        $pkgname-553.patch)
+sha256sums=('befe8a0e100f6a92ad1b15a6e4adc86bb5f1e055f09b125090300ade5b33534d'
+            '4d500b72e1c8669c8944ea4deb2bacecfb679f49efee054c49fc0ee7aea8f9df')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
@@ -30,11 +32,13 @@ prepare() {
   # XXX: Temporarily remove testing trio as a backend. anyio 3.x is known to be incompatible with trio >= 0.22
   # https://github.com/agronholm/anyio/commit/787cb0c2e53c2a3307873d202fbd49dc5eac4e96
   sed -i '/"trio"/d' tests/conftest.py
+  # Backported from https://github.com/agronholm/anyio/pull/553 (merged to git master)
+  patch -Np1 -i ../$pkgname-553.patch
 }
 
 build() {
   cd anyio-$pkgver
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
@@ -42,12 +46,13 @@ check() {
   # Install to a temporary root as the test suite requires the entry point for
   # its pytest plugin
   pyver=$(python -c "import sys; print('{}.{}'.format(*sys.version_info[:2]))")
-  python setup.py install --root="$PWD/tmp_install" --skip-build
+  python -m installer --destdir="$PWD/tmp_install" dist/*.whl
+  # Several TLS tests failed with Python 3.11.3 https://github.com/agronholm/anyio/issues/550
   PYTHONPATH="$PWD/tmp_install/usr/lib/python$pyver/site-packages" pytest
 }
 
 package() {
   cd anyio-$pkgver
-  python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname
 }
