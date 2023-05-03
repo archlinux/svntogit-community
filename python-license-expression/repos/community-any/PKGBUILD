@@ -5,7 +5,7 @@
 
 pkgname=python-license-expression
 pkgver=30.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Utility to parse, normalize and compare license expressions'
 arch=('any')
 url='https://github.com/nexB/license-expression'
