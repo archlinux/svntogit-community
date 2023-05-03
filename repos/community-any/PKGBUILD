@@ -2,7 +2,7 @@
 
 pkgname=pyannotate
 pkgver=1.2.0
-pkgrel=5
+pkgrel=6
 pkgdesc='Auto-generate PEP-484 annotations'
 arch=('any')
 url='https://github.com/dropbox/pyannotate'
