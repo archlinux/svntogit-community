@@ -3,7 +3,7 @@
 pkgbase=maturin
 pkgname=(maturin python-maturin)
 pkgver=0.14.17
-pkgrel=3
+pkgrel=4
 pkgdesc="Build and publish crates with pyo3, rust-cpython and cffi bindings"
 url="https://github.com/PyO3/maturin"
 arch=(x86_64)
@@ -17,7 +17,6 @@ makedepends=(
   python-installer
   python-setuptools
   python-setuptools-rust
-  python-tomli
   python-wheel
   rust
 )
@@ -68,9 +67,8 @@ package_maturin() {
 package_python-maturin() {
   pkgdesc+=" - Python bindings"
   depends=(
-    maturin
+    maturin=$pkgver
     python
-    python-tomli
   )
 
   mv -v $pkgname/* "$pkgdir"
