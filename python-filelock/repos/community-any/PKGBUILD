@@ -3,7 +3,7 @@
 pkgname=python-filelock
 pkgver=3.12.0
 _commit=b4713c946cf8bcd65276bffbccef8f269d504dbd
-pkgrel=1
+pkgrel=2
 pkgdesc="A platform independent file lock"
 url="https://github.com/benediktschmitt/py-filelock"
 license=('custom:Unlicense')
