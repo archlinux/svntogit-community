@@ -5,7 +5,7 @@
 _pkgname=rapidfuzz
 pkgname=python-$_pkgname
 pkgver=3.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Rapid fuzzy string matching in Python using various string metrics'
 arch=(x86_64)
 url='https://github.com/maxbachmann/rapidfuzz'
