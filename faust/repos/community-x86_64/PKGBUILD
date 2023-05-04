@@ -5,14 +5,24 @@
 
 pkgname=faust
 pkgver=2.54.9
-pkgrel=2
+pkgrel=3
 pkgdesc="A functional programming language for realtime audio signal processing."
 arch=(x86_64)
 url="https://faust.grame.fr/"
 license=(GPL2)
 groups=(pro-audio)
-depends=(gcc-libs glibc llvm-libs libmicrohttpd)
-makedepends=(cmake libsndfile llvm xxd)
+depends=(
+  gcc-libs
+  glibc
+  libmicrohttpd
+  llvm-libs
+)
+makedepends=(
+  cmake
+  libsndfile
+  llvm
+  xxd
+)
 optdepends=(
   'clang: for sound2reader'
   'csound: for faust2csound'
@@ -34,46 +44,60 @@ optdepends=(
   'supercollider: for faust2supercollider'
   'texlive-core: for faust2pdf'
 )
-provides=(libfaustmachine.so libfaust.so libOSCFaust.so libHTTPDFaust.so)
-options=(debug staticlibs)
+provides=(
+  libfaustmachine.so
+  libfaust.so
+  libOSCFaust.so
+  libHTTPDFaust.so
+)
+options=(staticlibs)
 source=(
   https://github.com/grame-cncm/$pkgname/releases/download/$pkgver/$pkgname-$pkgver.tar.gz
   $pkgname-2.54.9-sound2faust_makefile.patch
+  $pkgname-2.54.9-missing_header.patch::https://github.com/grame-cncm/faust/commit/2560b69377edf0664a8338b2c75f70032a48f054.patch
 )
 sha512sums=('cc3fef369cb9820c341185e1f8f9c0503cdd41fcc2b3bb4d7b0d51c7bbb65857caf089127ac489113ce8cbe7226bcfd35eac8b2d4d6eaeb2dfd0fb21df053660'
-            '7bc75d5d9ab826fcdecffc054e0aaa9e74a3abce3a1c89a306a5c3910b847878fd9946aa230067de31bd4a7ba377f08165d2969589fbaa28d9b9a07d1af144ea')
+            '7bc75d5d9ab826fcdecffc054e0aaa9e74a3abce3a1c89a306a5c3910b847878fd9946aa230067de31bd4a7ba377f08165d2969589fbaa28d9b9a07d1af144ea'
+            'ea176e0ff5cc4ec7dd83c49c59f9e890bbc14ade454a103e3f96a80059222ea150e36dc5d8408ccb5a2d37d6b396bdc729cf326dc111a0331aef395eb902e4aa')
 b2sums=('6ba6bd36c7c2561fb520cad0e7f9fb8f1261c934defe7146d7bd773df9ec4eb14d1615fae40326b6e2c6b4bea6e75634e1eba687267f873383530af5fd291bb6'
-        'dabdc6839a9adc5a559ddb0645fafb5bd00abe225bd5ca8a9b41c57b03d63ae957e09d20244ea2c19770c74141a847c66de28d9cab6a7d0e5f4ce70ef6fe9f05')
+        'dabdc6839a9adc5a559ddb0645fafb5bd00abe225bd5ca8a9b41c57b03d63ae957e09d20244ea2c19770c74141a847c66de28d9cab6a7d0e5f4ce70ef6fe9f05'
+        'e9e105ffd54b34b0b896c7d736b5a6d3b8c530087e0b6b945abc57cffc89e1080d493d890bf0e73db68f4b816ecef12d0521de2c8210676a95624e9d9e6e23ab')
 
 prepare() {
   # do not link sound2faust against libsndfile.a: https://github.com/grame-cncm/faust/issues/840
   patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-2.54.9-sound2faust_makefile.patch
+  # add missing header: https://bugs.archlinux.org/task/78405
+  patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-2.54.9-missing_header.patch
 }
 
 build() {
+  local cmake_options=(
+        -B build
+        -C $pkgname-$pkgver/build/backends/all.cmake
+        -C $pkgname-$pkgver/build/targets/all.cmake
+        -D CMAKE_INSTALL_PREFIX=/usr
+        -D CMAKE_BUILD_TYPE=None
+        -D INCLUDE_DYNAMIC=ON
+        -D INCLUDE_STATIC=ON
+        -D INCLUDE_ITP=ON
+        -W no-dev
+        -S $pkgname-$pkgver/build
+  )
   # prevent static libs from being mangled with LTO
   CXXFLAGS+=' -ffat-lto-objects'
 
-  cd $pkgname-$pkgver
-  cmake -C build/backends/all.cmake \
-        -C build/targets/all.cmake \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=None \
-        -DINCLUDE_DYNAMIC=ON \
-        -DINCLUDE_STATIC=ON \
-        -DINCLUDE_ITP=ON \
-        -W no-dev \
-        -B $pkgname-build \
-        -S build
-  make VERBOSE=1 -C $pkgname-build
-  make VERBOSE=1 -C tools/sound2faust
+  cmake "${cmake_options[@]}"
+  cmake --build build --verbose
+  make VERBOSE=1 -C $pkgname-$pkgver/tools/sound2faust
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
 }
 
 package() {
-  depends+=(libsndfile.so)
-
+  DESTDIR="$pkgdir" cmake --install build
   cd $pkgname-$pkgver
-  make VERBOSE=1 PREFIX=/usr DESTDIR="$pkgdir" install -C $pkgname-build
   make VERBOSE=1 PREFIX=/usr DESTDIR="$pkgdir" install -C tools/sound2faust
 
   # docs
