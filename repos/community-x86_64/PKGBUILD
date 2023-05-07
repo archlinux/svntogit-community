@@ -1,92 +1,83 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 # Contributor: RedTide <redtid3@gmail.com>
 
-pkgname=sfizz
-pkgver=1.2.0
-pkgrel=3
+pkgbase=sfizz
+pkgname=(
+  sfizz
+  sfizz-{lib,lv2,standalone,vst3}
+  pd-sfizz
+)
+pkgver=1.2.1
+pkgrel=1
 pkgdesc="SFZ library and LV2 plugin"
 arch=(x86_64)
 url="https://github.com/sfztools/sfizz"
 license=(BSD)
-groups=(lv2-plugins pro-audio vst3-plugins)
-depends=(
+makedepends=(
   abseil-cpp
   cairo
+  cmake
+  cxxopts
   gcc-libs
+  ghc-filesystem
   glibc
+  jack
+  freetype2
   libx11
   libxkbcommon
   libxkbcommon-x11
-  pugixml
-  ttf-roboto
-  xcb-util
-  xcb-util-cursor
-  zenity
-)
-makedepends=(
-  cmake
-  cxxopts
-  jack
-  freetype2
   lv2
+  pango
+  pugixml
   simde
   vst3sdk
+  xcb-util
+  xcb-util-cursor
   xcb-util-keysyms
 )
-checkdepends=(lv2lint catch2)
-optdepends=(
-  'jack: for sfizz_jack'
-  'lv2-host: for the LV2 plugin'
-  'pd: for puredata external'
-  'vst3-host: for the VST3 plugin'
+checkdepends=(
+  catch2
+  lv2lint
 )
-provides=(libsfizz.so)
 source=(
   $url/releases/download/$pkgver/$pkgname-$pkgver.tar.gz
-  system-catch2.patch
-  $pkgname-1.2.0-lv2lint.patch::https://github.com/sfztools/sfizz/pull/1114/commits/dac20eac20cbbcb14c6d25d1575b85d6dce7ee93.patch
 )
-sha512sums=('fd8500a9e94acee4cd61053ce9d6fd85e6dcee56c198e986557bb40b35a7ac902a4e3544bce4a13349a00f9d3024509db1a805ef442abdf94cb63cfadf0df81d'
-            '48c1ab4d0af4fa4b7330edd9da919032604e23a227510802593f6b0120cd10c43de88b2d20731496052578a76437061c82af046795709dc759e0a250e93acd1b'
-            '9c58f1b48309d67a9a668534a59b405fb9b103ec8eaf523a6208f739e8fb07936f2d4b1f384704f6d6e824d4fe1ba8135930367c0f314d5f7982b55868f24292')
-b2sums=('cecedcd1a1f6268f84b1e878b264226566d43b091cfc8d522084ed3af24a030b0840833dc093300d3e8b933398401b6ea619f36fe1df6ff04544eabf2850665c'
-        '34e150d89b0fd1dc88390f6474b1568fcfad9ac27474146f437f876766e750fe85b64771a15eab091c55da62e4008964dd8a8315b9341dd68bf49459b602f732'
-        '64f6de8e39d5b31413f5090d6de81d6151693e229779bc9a32a57ecdeccd7a5cb4aa0c982503239ed242725f158596419bec00cea313039565eca402a3200fc2')
+sha512sums=('933f43a397f717490f9067009a5c6d43391d697d7788f07a68fbd03dd4702fb17a2ebc69fa21775c6ba927bfbed1bf1de2ff49b5816dead1a47fa90eb4372b96')
+b2sums=('a8a6b512a9b001e9d9c4f39fb3576c09aaadb9132cd6852368ed137a06c95a0f3a935ef9731b291c7f0d4175311a9c10aedbe991c53d335d5b23161901d8aa51')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
 
 prepare() {
-  # fix issues with LV2 validation: https://github.com/sfztools/sfizz/issues/1071
-  patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-1.2.0-lv2lint.patch
-
   # symlink tests data to top-level location so that tests can get to them (we build out of tree)
-  ln -sv $pkgname-$pkgver/tests .
-
-  # disable devendoring of vst3sdk as upstream is otherwise broken: https://github.com/sfztools/sfizz/issues/1143
-  # rm -rf plugins/vst/external/VST_SDK/*
-  # ln -sv /usr/share/vst3sdk/ plugins/vst/external/VST_SDK/VST3_SDK
-
-  cd $pkgname-$pkgver
-  # devendor lv2
-  rm -rfv lv2/lv2
-  sed -e 's|"lv2/core/lv2.h"|<lv2/core/lv2.h>|g' -i plugins/lv2/external/ardour/ardour/lv2_extensions.h
-
-  # use system catch2
-  rm -rf tests/catch2
-  patch -p1 -i ../system-catch2.patch
+  ln -sv $pkgbase-$pkgver/tests .
 }
 
 build() {
   local cmake_options=(
-    -DCMAKE_INSTALL_PREFIX=/usr
-    -DCMAKE_BUILD_TYPE=None
-    -DSFIZZ_PUREDATA=ON
-    -DSFIZZ_TESTS=ON
-    -DSFIZZ_USE_SYSTEM_ABSEIL=ON
-    -DSFIZZ_USE_SYSTEM_CXXOPTS=ON
-    -DSFIZZ_USE_SYSTEM_PUGIXML=ON
-    -DSFIZZ_USE_SYSTEM_SIMDE=ON
-    -Wno-dev
     -B build
-    -S $pkgname-$pkgver
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -D CMAKE_BUILD_TYPE=None
+    -D CMAKE_CXX_STANDARD=17
+    -D SFIZZ_PUREDATA=ON
+    -D SFIZZ_TESTS=ON
+    -D SFIZZ_USE_SYSTEM_ABSEIL=ON
+    -D SFIZZ_USE_SYSTEM_CATCH=ON
+    -D SFIZZ_USE_SYSTEM_CXXOPTS=ON
+    -D SFIZZ_USE_SYSTEM_GHC_FS=ON
+    -D SFIZZ_USE_SYSTEM_LV2=ON
+    -D SFIZZ_USE_SYSTEM_PUGIXML=ON
+    -D SFIZZ_USE_SYSTEM_SIMDE=ON
+    -D SFIZZ_USE_SYSTEM_VST3SDK=ON
+    -S $pkgbase-$pkgver
+    -W no-dev
   )
 
   cmake "${cmake_options[@]}"
@@ -95,13 +86,150 @@ build() {
 
 check() {
   ctest --test-dir build --output-on-failure
-  lv2lint -Mpack -I build/$pkgname.lv2 "http://sfztools.github.io/sfizz"
+  lv2lint -Mpack -I build/$pkgbase.lv2 "http://sfztools.github.io/sfizz"
 }
 
-package() {
+package_sfizz() {
+  depends=(
+    sfizz-{lib,lv2,standalone,vst3}
+    pd-sfizz
+  )
+
   DESTDIR="$pkgdir" cmake --install build
-  install -vDm 644 $pkgname-$pkgver/LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
-  install -vDm 644 $pkgname-$pkgver/{AUTHORS,CONTRIBUTING,GOVERNANCE,README}.md -t "$pkgdir/usr/share/doc/$pkgname/"
+
+  (
+    cd "$pkgdir"
+
+    _pick $pkgbase-lib usr/include
+    _pick $pkgbase-lib usr/lib/lib$pkgbase.so*
+    _pick $pkgbase-lib usr/lib/pkgconfig/$pkgbase.pc
+
+    _pick $pkgbase-lv2 usr/lib/lv2
+
+    _pick $pkgbase-standalone usr/bin
+    _pick $pkgbase-standalone usr/share/man/man1
+
+    _pick $pkgbase-vst3 usr/lib/vst3
+
+    _pick pd-$pkgbase usr/lib/pd
+  )
+
+}
+
+package_pd-sfizz() {
+  pkgdesc+=" - pd external"
+  groups=(
+    pd-externals
+    pro-audio
+  )
+  depends=(
+    abseil-cpp
+    gcc-libs
+    glibc
+    pd
+    pugixml
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 $pkgbase-$pkgver/{AUTHORS,CONTRIBUTING,GOVERNANCE,README}.md -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_sfizz-lib() {
+  pkgdesc+=" - library"
+  depends=(
+    abseil-cpp
+    gcc-libs
+    glibc
+    pugixml
+  )
+  provides=(libsfizz.so)
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 $pkgbase-$pkgver/{AUTHORS,CONTRIBUTING,GOVERNANCE,README}.md -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_sfizz-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+  depends=(
+    abseil-cpp
+    cairo
+    fontconfig
+    gcc-libs
+    glib2
+    glibc
+    libxcb
+    libxkbcommon
+    libxkbcommon-x11
+    lv2-host
+    pango
+    pugixml
+    ttf-roboto
+    xcb-util
+    xcb-util-cursor
+    zenity
+  )
+
+  mv -v $pkgname/* "$pkgdir"
   # devendor ttf-roboto
-  ln -svf /usr/share/fonts/TTF/Roboto-Regular.ttf "$pkgdir/usr/lib/vst3/$pkgname.vst3/Contents/Resources/Fonts/"
+  ln -svf /usr/share/fonts/TTF/Roboto-Regular.ttf "$pkgdir/usr/lib/lv2/$pkgbase.lv2/Contents/Resources/Fonts/"
+  install -vDm 644 $pkgbase-$pkgver/LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 $pkgbase-$pkgver/{AUTHORS,CONTRIBUTING,GOVERNANCE,README}.md -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_sfizz-standalone() {
+  pkgdesc+=" - standalone"
+  groups=(
+    pro-audio
+  )
+  depends=(
+    abseil-cpp
+    gcc-libs
+    glibc
+    pugixml
+  )
+  optdepends=(
+    'jack: for sfizz_jack'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 $pkgbase-$pkgver/{AUTHORS,CONTRIBUTING,GOVERNANCE,README}.md -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_sfizz-vst3() {
+  pkgdesc+=" - VST3 plugin"
+  groups=(
+    pro-audio
+    vst3-plugins
+  )
+  depends=(
+    abseil-cpp
+    cairo
+    fontconfig
+    gcc-libs
+    glib2
+    glibc
+    libxcb
+    libxkbcommon
+    libxkbcommon-x11
+    pango
+    pugixml
+    ttf-roboto
+    vst3-host
+    xcb-util
+    xcb-util-cursor
+    zenity
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  # devendor ttf-roboto
+  ln -svf /usr/share/fonts/TTF/Roboto-Regular.ttf "$pkgdir/usr/lib/vst3/$pkgbase.vst3/Contents/Resources/Fonts/"
+  install -vDm 644 $pkgbase-$pkgver/LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 $pkgbase-$pkgver/{AUTHORS,CONTRIBUTING,GOVERNANCE,README}.md -t "$pkgdir/usr/share/doc/$pkgname/"
 }
