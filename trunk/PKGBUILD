@@ -9,7 +9,7 @@ pkgdesc='A simple, correct PEP 517 build frontend'
 arch=('any')
 url='https://github.com/pypa/build'
 license=('MIT')
-depends=('python-packaging' 'python-pyproject-hooks' 'python-tomli')
+depends=('python-packaging' 'python-pyproject-hooks')
 optdepends=('python-virtualenv: Use virtualenv for build isolation')
 makedepends=('git' 'python-build' 'python-flit-core' 'python-installer'
              'python-sphinx' 'python-sphinx-argparse-cli' 'python-sphinx-autodoc-typehints' 'python-sphinx-furo')
