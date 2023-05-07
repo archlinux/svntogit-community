@@ -3,12 +3,12 @@
 _name=pyproject_hooks
 pkgname=python-pyproject-hooks
 pkgver=1.0.0
-pkgrel=4
+pkgrel=5
 pkgdesc="A low-level library for calling build-backends in pyproject.toml-based project"
 arch=(any)
 url="https://github.com/pypa/pyproject-hooks"
 license=(MIT)
-depends=(python python-tomli)
+depends=(python)
 makedepends=(python-build python-installer python-flit-core python-wheel)
 checkdepends=(python-pytest python-setuptools python-testpath)
 source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz)
