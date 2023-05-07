@@ -6,8 +6,8 @@
 # Contributor: zer0def <zer0def@github>
 
 pkgname=salt
-pkgver=3005.1
-pkgrel=3
+pkgver=3006.1
+pkgrel=1
 pkgdesc='Central system and configuration manager'
 arch=('any')
 url='http://saltstack.org/'
@@ -34,10 +34,8 @@ backup=('etc/logrotate.d/salt'
         'etc/salt/minion')
 install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
-        "salt-importlib.patch"
         salt.logrotate)
-sha256sums=('fa14c5d873f863b50950121d7e23a2449502745490c7c48c0cf045406cfe57c1'
-            '10703afd392e2af87cd06bdb6bcc3322c44825ef57cdc6e67d47a53b72514623'
+sha256sums=('95587bd611dea6affb6908d0ec2686cb7edb84c14144b4851776f127a60ec5b9'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 prepare() {
@@ -48,8 +46,6 @@ prepare() {
   # we only have one version and the "python_version <=> *" checks are discarded
   # so pyzmq<=20.0.0 ends up in the final requirements.txt
   echo -e '-r crypto.txt\n\npyzmq' > requirements/zeromq.txt
-
-  patch -Np1 < "$srcdir/salt-importlib.patch"
 }
 
 build() {
@@ -78,11 +74,11 @@ package() {
 
   # systemd services
   for _svc in salt-master.service salt-syndic.service salt-minion.service salt-api.service; do
-    install -v -Dm644 pkg/$_svc "$pkgdir/usr/lib/systemd/system/$_svc"
+    install -v -Dm644 pkg/common/$_svc "$pkgdir/usr/lib/systemd/system/$_svc"
   done
-  install -v -Dm644 pkg/salt.bash "$pkgdir/usr/share/bash-completion/completions/salt"
-  install -v -Dm644 pkg/salt.zsh "$pkgdir/usr/share/zsh/site-functions/_salt"
-  install -v -Dm644 -t "$pkgdir/usr/share/fish/vendor_completions.d" pkg/fish-completions/*
+  install -v -Dm644 pkg/common/salt.bash "$pkgdir/usr/share/bash-completion/completions/salt"
+  install -v -Dm644 pkg/common/salt.zsh "$pkgdir/usr/share/zsh/site-functions/_salt"
+  install -v -Dm644 -t "$pkgdir/usr/share/fish/vendor_completions.d" pkg/common/fish-completions/*
 }
 
 # vim:set ts=2 sw=2 et:
