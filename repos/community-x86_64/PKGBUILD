@@ -1,34 +1,37 @@
-# Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
 # Contributor: Andrew Belitsky <belitsky.a@gmail.com>
 pkgname=mygui
 replaces=('mygui-docs')
 pkgver=3.4.1
-pkgrel=1
+pkgrel=2
 pkgdesc="A multilayer and overlappable GUI System"
 arch=('x86_64')
 url="http://mygui.info/"
 license=('LGPL')
 depends=('sdl2' 'sdl2_image' 'glu')
-makedepends=('cmake' 'doxygen' 'graphviz' 'ttf-dejavu')
+makedepends=('cmake' 'doxygen' 'graphviz' 'ttf-dejavu' 'ninja')
 install=mygui.install
-source=("https://github.com/MyGUI/mygui/archive/MyGUI${pkgver}.tar.gz")
-sha512sums=('9d36272345b1a755db88848c8a0919feb6f8ae09d048efa3b8ed833bb5ddb9c65e1e7e0d26ad39eecd2a4de53fb654f4099c555e9ebd21ce9541a1a74580ef05')
+source=("https://github.com/MyGUI/mygui/archive/MyGUI${pkgver}.tar.gz"
+        $pkgname-fix-gcc13.patch::https://github.com/MyGUI/mygui/pull/249.patch)
+sha512sums=('9d36272345b1a755db88848c8a0919feb6f8ae09d048efa3b8ed833bb5ddb9c65e1e7e0d26ad39eecd2a4de53fb654f4099c555e9ebd21ce9541a1a74580ef05'
+            '46663e2a45e7468036cf413c87acbad0d5960b5d577ad2d26df8f0aa0e5272c2a239b245bf0fff5b577e117c06b2bb4b1548a5b57fb1ad1b95676442df568dc7')
 
 prepare() {
-  mkdir -p mygui-MyGUI${pkgver}/build
+  cd mygui-MyGUI${pkgver}
+  patch -Np1 -i "$srcdir"/$pkgname-fix-gcc13.patch
 }
 
 build() {
-  cd mygui-MyGUI${pkgver}/build
+  cd mygui-MyGUI${pkgver}
 
   # change CMake config so demos install to /opt
-  sed -i 's:"bin:"../opt/MYGUI:' ../CMake/Utils/MyGUIConfigTargets.cmake
-  sed -i -e 's:../share:/usr/share:' \
-         -e 's:"bin":"../opt/MYGUI":' \
-         ../CMake/InstallResources.cmake
+  sed -i 's:"bin:"../opt/MYGUI:' CMake/Utils/MyGUIConfigTargets.cmake
+  sed -i -e 's:../share:/usr/share:' -e 's:"bin":"../opt/MYGUI":' CMake/InstallResources.cmake
 
   # generate CMake Makefile
-  cmake .. \
+  cmake \
+    -Bbuild \
+    -GNinja \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DMYGUI_INSTALL_SAMPLES=TRUE \
     -DMYGUI_INSTALL_TOOLS=TRUE \
@@ -40,14 +43,14 @@ build() {
     -DMYGUI_RENDERSYSTEM=7 \
     -DBUILD_SHARED_LIBS=TRUE
 
-  make
-  make api-docs
+  ninja -C build
+  ninja -C build api-docs
 }
 
 package() {
-  cd mygui-MyGUI${pkgver}/build
+  cd mygui-MyGUI${pkgver}
 
-  make DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" ninja -C build install
 
   # make demos work
   # install -Dm775 lib/libCommon.so ${pkgdir}/usr/lib/libCommon.so
@@ -56,7 +59,7 @@ package() {
 
   # install docs
   install -d "${pkgdir}"/usr/share/doc/
-  cp -r Docs/html "${pkgdir}"/usr/share/doc/MYGUI
+  cp -r build/Docs/html "${pkgdir}"/usr/share/doc/MYGUI
 }
 
 # vim:set ts=2 sw=2 et:
