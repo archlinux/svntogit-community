@@ -2,26 +2,22 @@
 
 _pkgname=yarl
 pkgname=python-yarl
-pkgver=1.8.2
-pkgrel=3
+pkgver=1.9.2
+pkgrel=1
 pkgdesc='Yet another URL library'
 url='https://github.com/aio-libs/yarl/'
 arch=('x86_64')
 license=('Apache')
-depends=('glibc' 'python' 'python-multidict' 'python-idna' 'python-typing_extensions')
+depends=('glibc' 'python' 'python-multidict' 'python-idna')
 makedepends=('cython' 'python-setuptools' 'python-build' 'python-installer' 'python-wheel')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-cov')
-source=(https://github.com/aio-libs/yarl/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz
-        https://github.com/aio-libs/yarl/commit/41a92bd3.patch)
-sha512sums=('d5dcebcec06d520b48a1d879671a92371bd89eabb7be700c129fcc45e763ecc0370cbb5e88c7b9be05ecb3317370231293a8c076ed68d71a36fe953219dd27ea'
-            '4a227468ef63e1772d76563b8bb469560306051f5937f0d5252f5a2a7a52e82cd3c163271fba8e8b752c986dc4a858198b5f986ad0f12ff71a4df379efaa1a9e')
-b2sums=('1f2cec38bb681f6a59f10253c75e74912d482cdbe0e639e3ba0a43b9d6ab7b7edc1558c9fffaffd7aad9fa905d884e856ff7f7b69dd103800ef62f7f05de90b5'
-        'a57d6d001f6eac25844ff1423838dfc80eb4cee94d6ec0045586ab09e223e1603c8f458e7721c46e923ea1de15487f4e030bed72f748d0a8817be4db457c1f55')
+source=(https://github.com/aio-libs/yarl/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
+sha512sums=('c6159ed26f946533543f4238feb90986422dda3bd6c2c68e274d2745efb4eccad76dfbc129370d8c5e24584fc459dbc0002fd66fbdad9291a30041c929dee6d8')
+b2sums=('ee8952b3cb252e18a2e04fbea96001b11ed39c72b0168adb0c961a1626842d0de480bde7de7423d5408fc095d66d6b3f829983da78e7d0c5925593afb1dd0fb8')
 
 prepare() {
   cd ${_pkgname}-${pkgver}
   sed 's| .install-cython ||g' -i Makefile
-  patch -p1 -i ../41a92bd3.patch # Fix tests with Python 3.11
 }
 
 build() {
