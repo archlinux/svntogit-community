@@ -3,12 +3,12 @@
 _name=flit-core
 pkgname=python-flit-core
 pkgver=3.8.0
-pkgrel=5
+pkgrel=6
 pkgdesc="A PEP 517 build backend for packages using Flit"
 arch=(any)
 url="https://github.com/pypa/flit/tree/main/flit_core"
 license=(BSD)
-depends=(python python-tomli)
+depends=(python)
 makedepends=(python-build python-installer)
 checkdepends=(python-pytest python-testpath)
 source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/${_name/-/_}-$pkgver.tar.gz)
