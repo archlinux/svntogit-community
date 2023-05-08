@@ -2,9 +2,9 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=sequoia-sq
-pkgver=0.29.0
-_commit=bc9bc72fd670eda6bba973352b8053d67b1a180a  # refs/tags/v0.29.0
-pkgrel=3
+pkgver=0.30.0
+_commit=2f3f75e8c2117ae2ff118219dc7a118eb8f52b0b  # refs/tags/v0.30.0
+pkgrel=1
 pkgdesc='Command-line frontends for Sequoia'
 url='https://sequoia-pgp.org/'
 arch=('x86_64')
@@ -18,6 +18,7 @@ depends=(
   'gmp'
   'nettle' 'libnettle.so' 'libhogweed.so'
   'openssl'
+  'sqlite'
 )
 makedepends=(
   'git'
@@ -50,6 +51,7 @@ build() {
 
 check() {
   cd $pkgname
+  export CARGO_TARGET_DIR=../target
   export RUSTUP_TOOLCHAIN=stable
   cargo test --release --frozen --features 'default'
 }
@@ -61,7 +63,9 @@ package() {
   install -Dm 644 target/_sq -t "${pkgdir}/usr/share/zsh/site-functions"
   install -Dm 644 target/sq.fish -t "${pkgdir}/usr/share/fish/vendor_completions.d"
 
-  install -Dm 644 $pkgname/man-sq/*.1 -t "${pkgdir}/usr/share/man/man1"
+  for manpage in target/release/build/$pkgname-*/out/*.1; do
+    install -Dm 644 $manpage -t "${pkgdir}/usr/share/man/man1/"
+  done
 }
 
 # vim: ts=2 sw=2 et:
