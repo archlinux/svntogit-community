@@ -5,13 +5,12 @@
 _name=setuptools_scm
 pkgname=python-setuptools-scm
 pkgver=7.1.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Handles managing your python package versions in scm metadata"
 arch=('any')
 url="https://github.com/pypa/setuptools_scm"
 license=('MIT')
-depends=('python-packaging' 'python-setuptools' 'python-tomli'
-         'python-typing_extensions')
+depends=('python-packaging' 'python-setuptools' 'python-typing_extensions')
 makedepends=('python-build' 'python-installer' 'python-wheel')
 checkdepends=('git' 'mercurial' 'python-pip' 'python-pytest'
               'python-virtualenv')
