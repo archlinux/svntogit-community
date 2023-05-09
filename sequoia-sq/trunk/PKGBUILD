@@ -4,7 +4,7 @@
 pkgname=sequoia-sq
 pkgver=0.30.0
 _commit=2f3f75e8c2117ae2ff118219dc7a118eb8f52b0b  # refs/tags/v0.30.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Command-line frontends for Sequoia'
 url='https://sequoia-pgp.org/'
 arch=('x86_64')
@@ -51,7 +51,9 @@ build() {
 
 check() {
   cd $pkgname
-  export CARGO_TARGET_DIR=../target
+  # NOTE: we use a different target dir, as otherwise cargo test --release alters the sq binary
+  # https://gitlab.com/sequoia-pgp/sequoia-sq/-/issues/96
+  export CARGO_TARGET_DIR=../target-test
   export RUSTUP_TOOLCHAIN=stable
   cargo test --release --frozen --features 'default'
 }
