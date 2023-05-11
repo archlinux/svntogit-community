@@ -1,8 +1,9 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
+# Maintainer: Christian Heusel <gromit@archlinux.org>
 # Contributor: David Anderson <dave@natulte.net>
 
 pkgname=tailscale
-pkgver=1.40.0
+pkgver=1.40.1
 pkgrel=1
 pkgdesc="A mesh VPN that makes it easy to connect your devices, wherever they are."
 arch=("x86_64")
@@ -13,7 +14,7 @@ depends=("glibc")
 backup=("etc/default/tailscaled")
 # Important: Check if the version has been published before updating
 # curl -s "https://pkgs.tailscale.com/stable/?mode=json"
-_commit=9bdaece3d7c3c83aae01e0736ba54e833f4aea51	#refs/tags/v1.40.0^{}
+_commit=3589beb7b4bb6ad42adb886412b23ee806c45489 # refs/tags/v1.40.1
 source=("git+https://github.com/tailscale/tailscale.git#commit=${_commit}")
 sha256sums=('SKIP')
 
