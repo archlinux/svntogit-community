@@ -5,40 +5,48 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=7.0.0
+pkgver=7.0.1
 pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
 license=('BSD')
-depends=('python-babel'
-         'python-docutils'
-         'python-imagesize'
-         'python-jinja'
-         'python-packaging'
-         'python-pygments'
-         'python-requests'
-         'python-snowballstemmer'
-         'python-sphinx-alabaster-theme'
-         'python-sphinxcontrib-'{{apple,dev,html}help,jsmath,qthelp,serializinghtml})
+depends=(
+  'python-babel'
+  'python-docutils'
+  'python-imagesize'
+  'python-jinja'
+  'python-packaging'
+  'python-pygments'
+  'python-requests'
+  'python-snowballstemmer'
+  'python-sphinx-alabaster-theme'
+  'python-sphinxcontrib-'{{apple,dev,html}help,jsmath,qthelp,serializinghtml}
+)
 makedepends=('python-build' 'python-flit-core' 'python-installer')
-checkdepends=('cython'
-              'imagemagick' 'librsvg'
-              'python-filelock'
-              'python-html5lib'
-              'python-pytest'
-              'python-setuptools'
-              'texlive-fontsextra' 'texlive-latexextra')
-optdepends=('imagemagick: for ext.imgconverter'
-            'texlive-latexextra: for generation of PDF documentation')
+checkdepends=(
+  'cython'
+  'imagemagick' 'librsvg'
+  'python-filelock'
+  'python-html5lib'
+  'python-pytest'
+  'python-setuptools'
+  'texlive-fontsextra' 'texlive-latexextra'
+)
+optdepends=(
+  'imagemagick: for ext.imgconverter'
+  'texlive-latexextra: for generation of PDF documentation'
+)
 source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
-sha256sums=('283c44aa28922bb4223777b44ac0d59af50a279ac7690dfe945bb2b9575dc41b'
+sha256sums=('61e025f788c5977d9412587e733733a289e2b9fdc2fef8868ddfbfc4ccfe881d'
             'SKIP')
-b2sums=('ef4e9f6f63231cbca926225ba4f77d7aaff0b6195f3da5f1e434a66c42538c02ae3ebb52ae94653ae7603f7326b4a4812778e15a218990c759b4f7d35638c12f'
+b2sums=('f6193be4d63a1a6c04168b078a3da9e90da410b109b110b9b2402ce242321fae432c08318113b872c15eb5d822857b1cfc735c7f7ed65842cff12732cc31f232'
         'SKIP')
-validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA <i.tkomiya@gmail.com>
-              'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07'  # Takayuki Shimizukawa <shimizukawa@gmail.com>
-              'D3549119BD51B4AFE643E59752C8F72A61F0FB52') # Adam Turner <9087854+aa-turner@users.noreply.github.com>
+validpgpkeys=(
+  '8A11B79A5D0D749A66F0A030102C2C17498D6B9E' # Takeshi KOMIYA <i.tkomiya@gmail.com>
+  'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07' # Takayuki Shimizukawa <shimizukawa@gmail.com>
+  'D3549119BD51B4AFE643E59752C8F72A61F0FB52' # Adam Turner <9087854+aa-turner@users.noreply.github.com>
+)
 
 build() {
   cd Sphinx-$pkgver
