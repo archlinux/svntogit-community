@@ -2,9 +2,9 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 
 pkgname=ghidra
-pkgver=10.2.3
-_d2j=2.0
-_yajsw=13.05
+pkgver=10.3
+_d2j=2.1
+_yajsw=13.09
 pkgrel=1
 pkgdesc='Software reverse engineering framework'
 url='https://ghidra-sre.org/'
@@ -16,23 +16,23 @@ optdepends=('pam: GhidraServer support')
 options=('!strip')
 source=(https://github.com/NationalSecurityAgency/ghidra/archive/Ghidra_${pkgver}_build.tar.gz
         "git+https://github.com/NationalSecurityAgency/ghidra-data#tag=Ghidra_${pkgver}"
-        https://github.com/pxb1988/dex2jar/releases/download/${_d2j}/dex-tools-${_d2j}.zip
+        https://github.com/pxb1988/dex2jar/releases/download/v${_d2j}/dex2jar-${_d2j}.zip
         https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/android4me/AXMLPrinter2.jar
         https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-${_yajsw}/yajsw-stable-${_yajsw}.zip)
 noextract=(AXMLPrinter2.jar
            yajsw-beta-${_yajsw}.zip)
-sha512sums=('f5dbc828e43acabe8e30f293726b7afa7f96aa29eb2d0ea1ccd4688012e9fdf2950fab2cfa7b8a2b94feaa8ec5ffba5d39017c8ec152e592818d6e3b67df3fc7'
+sha512sums=('79e9130df1274850fc81c9ccbc87f03103dabe992c2a5cde014c24ba9bffe6cc55a09687da91189781ebc81790bdf35828db92b9020cdb6b793462efb345666c'
             'SKIP'
-            'c4a6c72ea09b58a44fcb8918cfada600467f10f99a02b53d2436ac68295e73c8daf9ba0a8bc7160ba1e28e87f032ee034435ebe40af35b6e2fe9fa4607581358'
+            '44b4a51043ef608158e16f70d9a448ae0a37896da19bd9837e1124e197b7b41a7c37f074386b0cc03edd4f385066bf5ef04c553f6dec0b0cc2a11ecbf299b16f'
             'c1168ec913f1fbb0675915d4fd865ec9a8e8573f6c8aedcb6e68166f61f11aeaececc7548d54d78134843c0102c57d6350973f6d3027d0ffdae52a5c57a7f601'
-            'ba6421fcc9d5fd5edf0b5f299914a54a8e3d8cbe79b83cf9b1a4a1828eb26f32f8d04299235233581a848e274665c6d2da9b8394be1d7a824e443efd2508413c')
+            'd8682b57ce7577374a17113e1ace77393397e405e6450e3f7637ed1f0f42bc7170b378f775a4ba3c458b202ef35f95b35317cce45659b8a3b25aaa59e8393aa4')
 
 prepare() {
   export PATH="/usr/lib/jvm/java-17-openjdk/bin:${PATH}"
   cd ghidra-Ghidra_${pkgver}_build
 
   # Copy needed libraries into flat repo folder
-  install -Dm 644 ../dex2jar-${_d2j}/lib/dex-*.jar \
+  install -Dm 644 ../dex-tools-${_d2j}/lib/dex-*.jar \
     ../AXMLPrinter2.jar \
     -t dependencies/flatRepo
 
