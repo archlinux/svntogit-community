@@ -1,0 +1,52 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=microaeson
+pkgname=haskell-microaeson
+pkgver=0.1.0.1
+pkgrel=2
+pkgdesc="A tiny JSON library with light dependency footprint"
+url="https://github.com/haskell-hvr/microaeson.git"
+license=("GPL3")
+arch=('x86_64')
+depends=('ghc-libs')
+makedepends=('ghc' 'uusi' 'haskell-quickcheck' 'haskell-aeson' 'alex' 'haskell-quickcheck-instances'
+             'haskell-tasty' 'haskell-tasty-quickcheck' 'haskell-unordered-containers'
+             'haskell-vector')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha256sums=('786006ba68932d1a70ff11cea4668ddd8050963ac8ec62aa06ecabab4e7da567')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  uusi -u aeson -u vector -d fail $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' 
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
