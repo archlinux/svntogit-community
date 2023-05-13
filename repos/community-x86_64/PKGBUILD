@@ -8,7 +8,7 @@
 pkgbase=rxvt-unicode
 pkgname=('rxvt-unicode' 'rxvt-unicode-terminfo')
 pkgver=9.31
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url='http://software.schmorp.de/pkg/rxvt-unicode.html'
 license=('GPL')
@@ -16,6 +16,7 @@ makedepends=(
   'libxft'
   'libxt'
   'libxext'
+  'libxmu'
   'perl'
   'startup-notification'
   'libnsl'
@@ -51,6 +52,7 @@ build() {
   cd ${pkgname}-${pkgver}
   # we disable smart-resize (FS#34807)
   # do not specify --with-terminfo (FS#46424)
+  # do not specify --disable-frills (FS#77474)
   ./configure \
     --prefix=/usr \
     --enable-256-color \
@@ -76,15 +78,23 @@ build() {
     --enable-xft \
     --enable-xim \
     --enable-xterm-scroll \
-    --disable-pixbuf \
-    --disable-frills
+    --disable-pixbuf
   make
 }
 
 package_rxvt-unicode() {
   pkgdesc='Unicode enabled rxvt-clone terminal emulator (urxvt)'
-  depends=('rxvt-unicode-terminfo' 'libxft' 'perl' 'startup-notification' 'libnsl' 'libptytty' 'libxext')
-  optdepends=('gtk2-perl: to use the urxvt-tabbed')
+  depends=(
+    'rxvt-unicode-terminfo'
+    'libxft'
+    'perl'
+    'startup-notification'
+    'libnsl'
+    'libptytty'
+    'libxext'
+    'libxmu'
+  )
+  optdepends=('gtk2-perl: to use urxvt-tabbed')
 
   # install freedesktop menu
   for _f in urxvt urxvtc urxvt-tabbed; do
