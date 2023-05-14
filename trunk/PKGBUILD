@@ -2,18 +2,24 @@
 
 _name=flit-core
 pkgname=python-flit-core
-pkgver=3.8.0
-pkgrel=6
+pkgver=3.9.0
+pkgrel=1
 pkgdesc="A PEP 517 build backend for packages using Flit"
 arch=(any)
 url="https://github.com/pypa/flit/tree/main/flit_core"
 license=(BSD)
 depends=(python)
-makedepends=(python-build python-installer)
-checkdepends=(python-pytest python-testpath)
+makedepends=(
+  python-build
+  python-installer
+)
+checkdepends=(
+  python-pytest
+  python-testpath
+)
 source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/${_name/-/_}-$pkgver.tar.gz)
-sha512sums=('914804e3f2040762381afe039272d9d6fdbcd3f3cf8b9eea854f2f1d95edcb01718fd6685476bc1cdc251dfc46ef80b40f087df881d8b963dcc3f3332fd32a46')
-b2sums=('20d0b1e245280938b1edfa83531907775af9da30cc6e1446d578eafc7e14184d3c8fb80f446d265456ea5ea587c51edfdb706793a8894916525b3ebba322b3b0')
+sha512sums=('1205589930d2c51d6aa6b2533a122a912e63b157e94adba2a0649a58d324fa98a5b84609d9b53e9d236f1cdb6a6984de2cefcf2f11abc2cd83956df21f269ad6')
+b2sums=('2fb053655a494736f5f9ce2d2c193d5d98622e410c0c0f18c92eb62d32ff98cbe830a1728461ed7e7e087d2fcf5f6a0c912717c2d534be688d688c4714c6865b')
 
 build() {
   cd ${_name/-/_}-$pkgver
