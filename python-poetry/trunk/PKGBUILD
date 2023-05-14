@@ -7,7 +7,7 @@
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.4.2
-pkgrel=2
+pkgrel=3
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -64,7 +64,9 @@ prepare() {
   cd "$_archive"
   # Unpin crashtest which we have packaged at 0.4.0
   # https://bugs.archlinux.org/task/75733
-  sed -i -e '/^crashtest/s/\^/>=/' pyproject.toml
+  # Also unpin requests-toolbelt
+  # https://github.com/python-poetry/poetry/pull/7893
+  sed -i -e '/^crashtest/s/\^/>=/' -e '/^requests-toolbelt/s/,<0.11.0//' pyproject.toml
 }
 
 build() {
