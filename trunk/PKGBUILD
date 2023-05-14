@@ -1,16 +1,35 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgbase=yabridge
-pkgname=(yabridge yabridgectl)
-_commit=1bb6d57855ff60af0e79e4fab40eb0dd9dd74326  # refs/tags/5.0.4
+pkgname=(
+  yabridge
+  yabridgectl
+)
+_commit=b0217763119a71d79641f557710508d543ee7f29  # refs/tags/5.0.5
 _vst3sdk_commit=3ff02a8fb91f8e14f61c4e26130841b51d601575  # refs/tags/v3.7.7_build_19-patched
-pkgver=5.0.4
+_bundled=0  # whether to use bundled vst3sdk (1) or not (0)
+pkgver=5.0.5
 pkgrel=1
 pkgdesc="A modern and transparent way to use Windows VST2 and VST3 plugins on Linux"
 arch=(x86_64)
 url="https://github.com/robbert-vdh/yabridge"
 license=(GPL3)
-makedepends=(asio bitsery clap cmake function2 ghc-filesystem git lib32-libxcb libxcb meson rust tomlplusplus vst3sdk wine)
+makedepends=(
+  asio
+  bitsery
+  clap
+  cmake
+  function2
+  ghc-filesystem
+  git
+  lib32-libxcb
+  libxcb
+  meson
+  rust
+  tomlplusplus
+  vst3sdk
+  wine
+)
 # if LTO is enabled the cmake detection will explode because of wine
 options=(!lto)
 source=(
@@ -32,33 +51,38 @@ b2sums=('SKIP'
         'SKIP')
 
 prepare() {
-  # NOTE: use upstream's specific version of vst3sdk to get around compilation errors
-  (
-    cd $pkgbase-vst3sdk
-    git submodule init
-    git config submodule.base.url "$srcdir/$pkgbase-vst3_base"
-    git config submodule.pluginterfaces.url "$srcdir/$pkgbase-vst3_pluginterfaces"
-    git config submodule.publik.sdk.url "$srcdir/$pkgbase-vst3_public_sdk"
-    git -c protocol.file.allow=always submodule update
-  )
-
   (
     cd $pkgbase
-    # remove version pinning
-    sed -e "s/'==/'>=/" -i meson.build
+    # fix issues with bitsery/ gcc 13: https://github.com/robbert-vdh/yabridge/issues/249
+    git cherry-pick -n a6cca8bcd0ce194fa9362c37031620cbc8f8432c
   )
+
+  # remove version pinning
+  sed -e "s/'==/'>=/" -i $pkgbase/meson.build
   # remove all wraps as they are ignored anyways
-  rm -rv $pkgname/subprojects/*
+  rm -rv $pkgbase/subprojects/*
+  # add a subproject dir for vst3sdk
+  mkdir -vp $pkgbase/subprojects/vst3
 
-  mkdir -vp $pkgname/subprojects/vst3
-  # put system-installed vst3sdk in place and add upstream meson.build file from https://github.com/robbert-vdh/vst3sdk/
-  # NOTE: vst3sdk > 3.7.5 currently not compatible
-  # cp -av /usr/share/vst3sdk/* $pkgname/subprojects/vst3/
-  # cp -v $pkgbase-*-vst3sdk_meson.build $pkgname/subprojects/vst3/meson.build
+  if (( _bundled > 0 )); then
+    # use upstream's specific version of vst3sdk to get around compilation errors
+    (
+      cd $pkgbase-vst3sdk
+      git submodule init
+      git config submodule.base.url "$srcdir/$pkgbase-vst3_base"
+      git config submodule.pluginterfaces.url "$srcdir/$pkgbase-vst3_pluginterfaces"
+      git config submodule.publik.sdk.url "$srcdir/$pkgbase-vst3_public_sdk"
+      git -c protocol.file.allow=always submodule update
+    )
+    # build using bundled vst3sdk
+    cp -av $pkgbase-vst3sdk/* $pkgbase/subprojects/vst3/
+  else
+    # put system-installed vst3sdk in place and add upstream meson.build file
+    cp -av /usr/src/vst3sdk/* $pkgbase/subprojects/vst3/
+    cp -v $pkgbase-vst3sdk/meson.build $pkgbase/subprojects/vst3/meson.build
+  fi
 
-  cp -av $pkgbase-vst3sdk/* $pkgname/subprojects/vst3/
-
-  cd $pkgname/tools/yabridgectl
+  cd $pkgbase/tools/yabridgectl
   cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
 }
 
@@ -83,7 +107,16 @@ build() {
 
 package_yabridge() {
   groups=(pro-audio)
-  depends=(lib32-libxcb libxcb wine)
+  depends=(
+    gcc-libs
+    glibc
+    lib32-gcc-libs
+    lib32-glibc
+    lib32-libxcb
+    libxcb
+    sh
+    wine
+  )
   optdepends=(
     'libnotify: for notification integration'
     'yabridgectl: for optional setup and management utility'
@@ -95,7 +128,10 @@ package_yabridge() {
 }
 
 package_yabridgectl() {
-  depends=(gcc-libs glibc)
+  depends=(
+    gcc-libs
+    glibc
+  )
   pkgdesc="Optional utility to help set up and manage yabridge"
 
   install -vDm 755 $pkgbase/tools/$pkgname/target/release/$pkgname -t "$pkgdir/usr/bin"
