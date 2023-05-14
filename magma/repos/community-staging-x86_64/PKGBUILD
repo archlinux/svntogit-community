@@ -1,0 +1,96 @@
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
+# Maintainer: Torsten Keßler <tpkessler@archlinux.org>
+# Contributor: bartus <arch-user-repoᘓbartus.33mail.com>
+# Contributor: pingplug <pingplug@foxmail.com>
+# Contributor: cornholio <vigo.the.unholy.carpathian@gmail.com>
+
+_pkgname=magma
+pkgbase=$_pkgname
+pkgname=(magma-cuda magma-hip)
+pkgver=2.7.1
+pkgrel=6
+_pkgdesc="Matrix Algebra on GPU and Multicore Architectures"
+arch=('x86_64')
+url="https://icl.utk.edu/magma/"
+license=('custom')
+depends=('blas' 'lapack')
+makedepends=('gcc-fortran' 'cmake' 'ninja' 'cuda' 'hip-runtime-amd' 'hipblas' 'hipsparse')
+optdepends=('python: for examples and tests'
+            'gcc-fortran: Fortran interface')
+source=("${_pkgname}-${pkgver}.tar.gz::https://icl.utk.edu/projectsfiles/${_pkgname}/downloads/${_pkgname}-${pkgver}.tar.gz"
+        'add_cuda_archs.patch')
+sha256sums=('d9c8711c047a38cae16efde74bee2eb3333217fd2711e1e9b8606cbbb4ae1a50'
+            '1ed3706a65a124ecef71012273687307aac70bfc80bc99a978002dfb0ee000cc')
+options=(!lto)
+
+prepare() {
+  cp -r "${_pkgname}-${pkgver}" "${_pkgname}-${pkgver}-cuda"
+  cp -r "${_pkgname}-${pkgver}" "${_pkgname}-${pkgver}-hip"
+
+  cd "${_pkgname}-${pkgver}-cuda"
+  patch -Np1 -i "${srcdir}/add_cuda_archs.patch"
+}
+
+build() {
+  echo "Build with cuda backend"
+  cd "${srcdir}/${_pkgname}-${pkgver}-cuda"
+  cmake \
+    -Bbuild \
+    -GNinja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_SHARED_LIBS=ON \
+    -DGPU_TARGET="sm_52 sm_53 sm_60 sm_61 sm_62 sm_70 sm_72 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90"
+  ninja -C build
+
+  echo "Build with rocm/hip backend"
+  cd "${srcdir}/${_pkgname}-${pkgver}-hip"
+  # -fcf-protection is not supported by HIP, see
+  # https://docs.amd.com/bundle/ROCm-Compiler-Reference-Guide-v5.4/page/Appendix_A.html
+  CXXFLAGS="${CXXFLAGS} -fcf-protection=none" \
+  cmake \
+    -Bbuild \
+    -GNinja \
+    -DCMAKE_CXX_COMPILER=/opt/rocm/bin/hipcc \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_SHARED_LIBS=ON \
+    -DMAGMA_ENABLE_HIP=ON \
+    -DGPU_TARGS="gfx803 gfx900 gfx906:xnack- gfx908:xnack- gfx90a:xnack+ gfx90a:xnack- gfx1010 gfx1012 gfx1030 gfx1100 gfx1101 gfx1102"
+    #List of GPU targets from rocBLAS
+  ninja -C build
+}
+
+_package() {
+  DESTDIR="${pkgdir}" ninja -Cbuild install
+
+  install -d "${pkgdir}"/usr/share/magma/example
+  cp -r "${srcdir}"/magma-${pkgver}/example/* "${pkgdir}"/usr/share/magma/example/
+  install -d "${pkgdir}"/usr/share/magma/testing
+  cp -r "${srcdir}"/magma-${pkgver}/testing/* "${pkgdir}"/usr/share/magma/testing/
+  install -Dm644 "${srcdir}"/magma-${pkgver}/COPYRIGHT "${pkgdir}"/usr/share/licenses/magma/LICENSE
+}
+
+package_magma-cuda() {
+  pkgdesc="${_pkgdesc} (with CUDA)"
+  depends+=(cuda)
+  conflicts=(magma magma-hip)
+  provides=(magma)
+  replaces=(magma)
+
+  cd "${srcdir}/${_pkgname}-${pkgver}-cuda"
+  _package
+}
+
+package_magma-hip() {
+  pkgdesc="${_pkgdesc} (with ROCm/HIP)"
+  depends+=(hip-runtime-amd hipblas hipsparse)
+  conflicts=(hipmagma magma magma-cuda)
+  provides=(hipmagma)
+  replaces=(hipmagma)
+
+  cd "${srcdir}/${_pkgname}-${pkgver}-hip"
+  _package
+}
+
+# vim:set ts=2 sw=2 et:
