@@ -1,8 +1,8 @@
 # Maintainer: George Rawlinson <grawlinson@archlinux.org>
 
 pkgname=python-sphinx-prompt
-pkgver=1.5.0
-pkgrel=2
+pkgver=1.6.0
+pkgrel=1
 pkgdesc='Sphinx directive to add unselectable prompt'
 arch=('any')
 url='https://github.com/sbrunner/sphinx-prompt'
@@ -18,11 +18,17 @@ makedepends=(
   'python-build'
   'python-installer'
   'python-wheel'
-  'python-setuptools'
+  'python-poetry-core'
 )
-_commit='427351db81469d8065b4632ae201c9d26e1f8062'
-source=("$pkgname::git+$url#commit=$_commit")
-b2sums=('SKIP')
+_commit='d24b0dc68ddb6ae93b3f8dabe2080809a1a1e603'
+source=(
+  "$pkgname::git+$url#commit=$_commit"
+  'pyproject.toml-template.patch'
+  'remove-unnecessary-dependencies.patch'
+)
+b2sums=('SKIP'
+        'a82f3e76a5237d30803e319305f48a0c9530ceee268a79e93a47d1bf1ff133789199d16a5bf75679d5f15d5247498bfcd9f06908b30681cd59e9b1e6e3364586'
+        '2f0c3b6e92c907151f408f730dd8c77aeb3a72401b87284248e7cbf604ebb5403553ed3026dc4c573a8cd8f7388cec69ce207f3c89c955b05eaf1fd4721137c3')
 
 pkgver() {
   cd "$pkgname"
@@ -30,8 +36,21 @@ pkgver() {
   git describe --tags | sed 's/^v//'
 }
 
+prepare() {
+  cd "$pkgname"
+
+  # manually set version
+  patch -p1 -i "$srcdir/pyproject.toml-template.patch"
+
+  # remove useless dependencies
+  patch -p1 -i "$srcdir/remove-unnecessary-dependencies.patch"
+}
+
 build() {
   cd "$pkgname"
+
+  # set version
+  sed -e "s/@PKGVER@/$pkgver/" -i pyproject.toml
 
   python -m build --wheel --no-isolation
 }
@@ -41,6 +60,9 @@ package() {
 
   python -m installer --destdir="$pkgdir" dist/*.whl
 
-  # license
-  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+  # symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir/usr/share/licenses/$pkgname"
+  ln -s "$site_packages/sphinx_prompt-$pkgver.dist-info/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
