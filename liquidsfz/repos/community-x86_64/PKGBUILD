@@ -1,53 +1,124 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
-pkgname=liquidsfz
-pkgver=0.3.1
+pkgbase=liquidsfz
+pkgname=(
+  liquidsfz
+  libliquidsfz
+  liquidsfz-{lv2,standalone}
+)
+pkgver=0.3.2
 pkgrel=1
 pkgdesc="SFZ Sampler"
 arch=(x86_64)
 url="https://github.com/swesterfeld/liquidsfz"
 license=(LGPL2.1)
-groups=(lv2-plugins pro-audio)
-depends=(gcc-libs glibc)
-makedepends=(jack libsndfile lv2)
+makedepends=(
+  jack
+  libsndfile
+  lv2
+  readline
+)
 checkdepends=(lv2lint)
-optdepends=(
-  'jack: for standalone application'
-  'lv2-host: for LV2 plugin'
-)
-provides=(libliquidsfz.so soundfont-synthesizer)
-options=(debug)
 source=(
-  $pkgname-$pkgver.tar.gz::https://github.com/swesterfeld/${pkgname}/archive/${pkgver}.tar.gz
+  $url/archive/$pkgver/$pkgbase-$pkgver.tar.gz
 )
-sha512sums=('00f020d7c649ab5a1d495666eb45326f9d59f278f261c5440987f82e08a7e2d5f1b3cfd4bfbf360a9a97ee2c7cbf3ccc9e29596c7b00488d0a2398d4fb5c90d6')
-b2sums=('f6be2c40ea4ce2dfc70e7559e5ecb3a07151267048665d857bc21dad47dda04de0b7f491b61ac0da2f98a7429e88344ffe9756881b45bc5af969e67fb5814a43')
+sha512sums=('c2730352e1145ff7d1133df02d72c2a5d83920b5188ede3e7fed3198f7721d2ca8bf5678358d5eff5e8e50de1126e99e59e7a00860e6e24fb4bbe57acdc48283')
+b2sums=('0ff83f68e1dfb65d2cc4e7592d35ff014fa07f6b9f6edbb08c9abdddbe2e35951462716c412488091f72964102959122f89373ffadb1c1f6dbb04ec11f19c488')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
 
 prepare() {
-  cd $pkgname-$pkgver
+  cd $pkgbase-$pkgver
   autoreconf -fiv
 }
 
 build() {
-  cd $pkgname-$pkgver
-  ./configure \
-    --prefix=/usr \
-    --enable-shared \
-    --disable-static \
+  local configure_options=(
+    --prefix=/usr
+    --enable-shared
+    --disable-static
     --disable-static-cxx
+  )
+
+  cd $pkgbase-$pkgver
+  ./configure "${configure_options[@]}"
   # prevent excessive overlinking due to libtool
   sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
   make
 }
 
 check() {
-  make -k check -C $pkgname-$pkgver
-  LD_LIBRARY_PATH="$pkgname-$pkgver/lib/.libs/:$LD_LIBRARY_PATH" lv2lint -Mpack -I $pkgname-$pkgver/lv2 "http://spectmorph.org/plugins/liquidsfz"
+  make -k check -C $pkgbase-$pkgver
+  LD_LIBRARY_PATH="$pkgbase-$pkgver/lib/.libs/:$LD_LIBRARY_PATH" lv2lint -Mpack -I $pkgbase-$pkgver/lv2 "http://spectmorph.org/plugins/liquidsfz"
 }
 
-package() {
-  depends+=(libsndfile.so)
+package_liquidsfz() {
+  depends=($pkgbase-{lv2,standalone})
 
-  make DESTDIR="$pkgdir/" install -C $pkgname-$pkgver
-  install -vDm 644 $pkgname-$pkgver/{NEWS,TODO,{OPCODES,README}.md} -t "$pkgdir/usr/share/doc/$pkgname/"
+  make DESTDIR="$pkgdir/" install -C $pkgbase-$pkgver
+
+  (
+    cd "$pkgdir"
+    _pick lib$pkgbase usr/include
+    _pick lib$pkgbase usr/lib/lib$pkgbase*
+    _pick lib$pkgbase usr/lib/pkgconfig
+    _pick $pkgbase-lv2 usr/lib/lv2/
+    _pick $pkgbase-standalone usr/bin/
+  )
+}
+
+package_liquidsfz-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+  depends=(
+    gcc-libs
+    glibc
+    libliquidsfz
+    libsndfile libsndfile.so
+    lv2-host
+  )
+
+  mv $pkgname/* "$pkgdir"
+}
+
+package_libliquidsfz() {
+  pkgdesc+=" - library"
+  depends=(
+    gcc-libs
+    glibc
+  )
+  provides=(
+    libliquidsfz.so
+  )
+
+  mv $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{NEWS,TODO,{OPCODES,README}.md} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_liquidsfz-standalone() {
+  pkgdesc+=" - standalone"
+  groups=(
+    pro-audio
+  )
+  depends=(
+    gcc-libs
+    glibc
+    jack
+    libliquidsfz
+    libsndfile libsndfile.so
+    readline libreadline.so
+  )
+
+  mv $pkgname/* "$pkgdir"
 }
