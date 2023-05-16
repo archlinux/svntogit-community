@@ -1,0 +1,71 @@
+# Maintainer: Alexander F. Rødseth <xyproto@archlinux.org>
+# Contributor: Andy Li <andy@onthewings.net>
+# Contributor: Daichi Shinozaki <dsdseg@gmail.com>
+# Contributor: Kyle Brady  <kyle at spark-gap dot com>
+# Contributor: Patrick Hof <courts@offensivethinking.org>
+# Contributor: Michael Fellinger <mf@rubyists.com>
+
+pkgname=haxe
+pkgver=4.3.1
+pkgrel=2
+pkgdesc='Cross-platform toolkit and programming language'
+arch=(x86_64)
+url='https://haxe.org/'
+license=(GPL LGPL MIT)
+depends=(neko mbedtls2)
+makedepends=(camlp5 git neko ocaml opam zlib perl-string-shellquote perl-ipc-system-simple)
+optdepends=(java-environment mono php python)
+options=(!strip)
+source=("$pkgname-$pkgver::git+https://github.com/HaxeFoundation/haxe#commit=964c84c817b3a73c49ee35207983d1c8cbca6eb8"
+         mbedtls2.patch) # tag: 4.3.1
+b2sums=('SKIP'
+        '77f5f9c6815934b5cf2aee75ba62ed0e2a4b46f23a5bb689dffa23469b4aa13ca6d0e94623c747af63450b2ea3dc57f54507a924f1d6cec1cab3368d74def211')
+
+prepare() {
+  cd $pkgname-$pkgver
+  git submodule update --init
+
+  # Prepare opam and ocamlfind before building
+  export HOME="$srcdir"
+  opam init -a --disable-sandboxing --compiler=ocaml-system
+  eval $(opam env)
+
+  # Install required OCaml packages
+  opam install -y extlib luv ocamlfind ptmap sedlex sha xml-light
+
+  # Create the script that will be placed in /etc/profile.d
+  echo 'export HAXE_STD_PATH=/usr/share/haxe/std' > haxe.sh
+
+  # Build with mbedtls2
+  patch -p1 -i ../mbedtls2.patch
+}
+
+build() {
+  # Prepare opam and ocamlfind before building
+  eval $(opam env --switch=ocaml-system)
+
+  cd $pkgname-$pkgver
+  make haxe
+
+  # "make tools" did not work. These are the replacement commands:
+  cd "$srcdir/$pkgname-$pkgver/extra/haxelib_src"
+  ../../haxe client.hxml || true
+  nekotools boot run.n
+  mv run ../../haxelib
+}
+
+check() {
+  cd $pkgname-$pkgver
+  ./haxe -version
+  ./haxelib version
+}
+
+package() {
+  cd $pkgname-$pkgver
+  install -d "$pkgdir/usr/"{bin/,share/haxe/}
+  install -m 755 haxe{,lib} "$pkgdir"/usr/bin/
+  cp -rf std "$pkgdir/usr/share/$pkgname/"
+  install -Dm 644 haxe.sh "$pkgdir/etc/profile.d/haxe.sh"
+  install -Dm 644 extra/LICENSE.txt \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.txt
+}
