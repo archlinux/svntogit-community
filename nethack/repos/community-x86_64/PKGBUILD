@@ -6,7 +6,7 @@
 # Contributor: Nick Erdmann <erdmann@date.upb.de>
 
 pkgname=nethack
-pkgver=3.6.6
+pkgver=3.6.7
 pkgrel=4
 pkgdesc='A single player dungeon exploration game'
 arch=(x86_64)
@@ -17,17 +17,14 @@ source=(
 	"https://www.nethack.org/download/${pkgver}/nethack-${pkgver//.}-src.tgz"
 	nethack.tmpfiles
 )
-sha512sums=(
-	579fde93a37a1b5df637d5bac2601194beeb455c175fbe3ef89342122c8567bb8221ce60d8a6168e6b45c67ade7d7b09c86bf202c8cbe2d6294d276be3e53055
-	SKIP
-)
-b2sums=(
-	7b4b12f3a711785c86208dab83f9de725c33470e056ee57e6d96c3a68f06c1d0d98343ed82eca669986361d0663ddbe56d9a74d9cb45b42bf005c2f323b3cd79
+# source: https://www.nethack.org/v367/download-src.html
+sha256sums=(
+	98cf67df6debf9668a61745aa84c09bcab362e5d33f5b944ec5155d44d2aacb2
 	SKIP
 )
 
 prepare() {
-	cd "NetHack-NetHack-${pkgver}_Released"
+	cd "NetHack-${pkgver}"
 
 	sed -e 's|^/\* \(#define LINUX\) \*/|\1|' \
 		-e 's|^/\* \(#define TIMED_DELAY\) \*/|\1|' \
@@ -36,6 +33,7 @@ prepare() {
 	# we are setting up for setgid games, so modify all necessary permissions
 	# to allow full access for groups
 
+	# With thanks to bugtracker user loqs for the CFLAGS and LDFLAGS adjustments
 	sed -e '/^HACKDIR/ s|/games/lib/\$(GAME)dir|/var/games/nethack/|' \
 		-e '/^SHELLDIR/ s|/games|/usr/bin|' \
 		-e '/^VARDIRPERM/ s|0755|0775|' \
@@ -43,6 +41,8 @@ prepare() {
 		-e '/^GAMEPERM/ s|0755|02755|' \
 		-e '/-DTIMED_DELAY/d' \
 		-e 's|\(DSYSCF_FILE=\)\\"[^"]*\\"|\1\\"/var/games/nethack/sysconf\\"|' \
+		-e 's|CFLAGS=-g -O -I../include -DNOTPARMDECL|CFLAGS+= $(CPPFLAGS) -I../include -DNOTPARMDECL|' \
+		-e 's/LFLAGS=-rdynamic/LFLAGS=$(LDFLAGS) -rdynamic/' \
 		-e 's|\(DHACKDIR=\)\\"[^"]*\\"|\1\\"/var/games/nethack/\\"|' \
 		-i sys/unix/hints/linux
 
@@ -61,14 +61,14 @@ prepare() {
 }
 
 build(){
-	cd "NetHack-NetHack-${pkgver}_Released/sys/unix"
+	cd "NetHack-${pkgver}/sys/unix"
 	sh setup.sh hints/linux
-	cd "$srcdir/NetHack-NetHack-${pkgver}_Released"
+	cd "$srcdir/NetHack-${pkgver}"
 	make
 }
 
 package() {
-	cd "NetHack-NetHack-${pkgver}_Released"
+	cd "NetHack-${pkgver}"
 
 	install -dm755 "$pkgdir"/usr/share/{man/man6,doc/nethack}
 	install -dm775 "$pkgdir"/var/games/
