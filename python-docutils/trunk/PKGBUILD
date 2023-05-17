@@ -6,7 +6,7 @@
 
 _name=docutils
 pkgname=python-docutils
-pkgver=0.20
+pkgver=0.20.1
 pkgrel=1
 epoch=1
 pkgdesc='Set of tools for processing plaintext docs into formats such as HTML, XML, or LaTeX'
@@ -17,7 +17,7 @@ depends=('python')
 makedepends=('python-build' 'python-installer' 'python-setuptools'
              'python-wheel')
 source=("https://downloads.sourceforge.net/$_name/$_name-$pkgver.tar.gz")
-b2sums=('b13f9d4c4dd54b29ff3f93baa8e4a9109c8f719ef62b21b0fceb3f337b5b0b732f3009463c19a1840898217df29e3990e5f24f5c0c17a968386df4c30f021380')
+b2sums=('73fb8302599ffe57b0840c898b0b2e3ccd39ff9ea6eec2b5d345d02c950e1a8357bd821e62733b0484e82bc30e71d30fab381390b0edaef4375b02bcd9eeeb40')
 
 build() {
   cd $_name-$pkgver
