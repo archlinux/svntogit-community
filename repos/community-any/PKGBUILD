@@ -2,8 +2,8 @@
 # Contributor: eolianoe <eolianoe At GoogleMAIL DoT com>
 
 pkgname=python-requests-toolbelt
-pkgver=0.10.1
-pkgrel=3
+pkgver=1.0.0
+pkgrel=1
 pkgdesc="A toolbelt of useful classes and functions to be used with python-requests."
 arch=('any')
 url="https://github.com/requests/toolbelt"
@@ -13,7 +13,7 @@ makedepends=('python-setuptools')
 checkdepends=('python-pytest' 'python-betamax' 'python-ndg-httpsclient' 'python-pyopenssl'
               'python-trustme')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/requests/toolbelt/archive/$pkgver.tar.gz")
-sha512sums=('ad6dfe3329c8be5a4521d223d25ec303201e706b34199c084efd0a30b8bc8cfb3382e80a502dc25bd5f7e5b2774a119d2255c49408979aaec45e221f412a7b52')
+sha512sums=('1ee5d5dbb0d140796c81d42c051ccfab8810bf5ec511b32c9a54b4adccbab460f3108acdfe5a65b3cb68377586ff0f55206bf231e64651aaea077feda7984953')
 
 build() {
   cd toolbelt-$pkgver
