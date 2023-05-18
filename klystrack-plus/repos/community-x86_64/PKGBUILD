@@ -1,26 +1,35 @@
 # Maintainer: George Rawlinson <grawlinson@archlinux.org>
 
 pkgname=klystrack-plus
-pkgver=0.10.0.alpha1
+pkgver=0.10.0.alpha2
 pkgrel=1
 pkgdesc='A tracker for making C64/NES/Amiga-style chiptunes on a modern platform'
 arch=('x86_64')
 url='https://github.com/LTVA1/klystrack'
 license=('MIT')
 depends=(
+  'glibc'
   'alsa-lib'
   'sdl2'
   'sdl2_image'
   'hicolor-icon-theme'
 )
 makedepends=('git')
-_commit='b94ccfac7071e030a25f6c5635c072ae9bf940e9'
+_commit='dddea70c9378ab9c3dbd09e5a0283295fcce2ede'
+options=('!lto')
 source=(
   "$pkgname::git+$url#commit=$_commit"
   'github.com-LTVA1-klystron::git+https://github.com/LTVA1/klystron'
+  'update-desktop-file.patch'
+  'repro-klystrack-plus.patch'
+  'repro-klystron.patch'
 )
 b2sums=('SKIP'
-        'SKIP')
+        'SKIP'
+        '5543cae63098a27ee6539cf92f06a87756bbfcbad0e6000eed8c5ad32fb354f18439730d021a278ffd8d4359b8c6847d8c0ae06a882faf1887b8a4c1c912ec50'
+        '761ef03457b9ea2009b8483608a99befe3444641ef5f351ab3d3d33271bedca1b32a2cec8c9d6fbec0a6d871134915cd5c11111c48b5015019021b61388e0a2c'
+        'c22be63b5103b9c9c21366df6d0a76b59d3f39054204a56845fe105de54240fc0f269db48330fb52269e9b32bef147bd529c39d1f26a088386c70f5d702168ff')
+
 
 pkgver() {
   cd "$pkgname"
@@ -34,22 +43,16 @@ prepare() {
   # prepare git submodules
   git submodule init
   git config submodule.klystron.url "$srcdir/github.com-LTVA1-klystron"
-  git submodule update
+  git -c protocol.file.allow=always submodule update
 
-  # remove png prefix from desktop file
-  sed -e 's/\.png//' -i linux/klystrack.desktop
+  # update desktop file to point to klystrack-plus,
+  # just in case users have the original klystrack installed
+  patch --strip 1 --input "$srcdir/update-desktop-file.patch"
 
-  # rename klystrack -> klystrack-plus
-  sed -e 's/klystrack/klystrack-plus/g' -i linux/klystrack.desktop
-
-  # use resource path klystrack-plus instead of klystrack
-  sed -e 's:/lib/klystrack:/lib/klystrack-plus:' -i Makefile
-
-  # first pass at ensuring reproducibility by using git commit date
-  sed -e 's/$(Q)date +"%Y%m%d"/$(Q)git show --no-patch --format=%cd --date=format:%Y%m%d/' -i Makefile
-
-  cd klystron
-  sed -e 's/$(Q)date +"%Y%m%d"/$(Q)git show --no-patch --format=%cd --date=format:%Y%m%d/' -i Makefile
+  # first pass at ensuring reproducibility by using 
+  # git commit date instead of date
+  patch --strip 1 --input "$srcdir/repro-klystrack-plus.patch"
+  patch --directory klystron --strip 1 --input "$srcdir/repro-klystron.patch"
 }
 
 build() {
