@@ -2,7 +2,7 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
-pkgver=23.0.6
+pkgver=24.0.0
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
