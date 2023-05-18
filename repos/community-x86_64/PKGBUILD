@@ -4,15 +4,23 @@
 # Contributor: David Runge <dvzrv@archlinux.org>
 # Contributor: Florian Hülsmann <fh@cbix.de>
 
-pkgname=surge-xt
-pkgver=1.1.2
+pkgbase=surge-xt
+pkgname=(
+  'surge-xt'
+  'surge-xt-common'
+  'surge-xt-standalone'
+  'surge-xt-vst3'
+  'surge-xt-clap'
+  'surge-xt-lv2'
+)
+pkgver=1.2.3
 pkgrel=1
 pkgdesc='Subtractive hybrid synthesizer'
 arch=('x86_64')
 url='https://surge-synthesizer.github.io'
 license=('GPL3')
-groups=('pro-audio' 'vst3-plugins' 'clap-plugins' 'lv2-plugins')
-depends=(
+groups=('pro-audio')
+_common_depends=(
   'glibc'
   'gcc-libs'
   'cairo'
@@ -27,11 +35,11 @@ depends=(
   'xcb-util-keysyms'
   'xcb-util-renderutil'
   'xdg-utils'
-  'hicolor-icon-theme'
   'fmt'
   'libsamplerate'
 )
 makedepends=(
+  "${_common_depends[@]}"
   'git'
   'cmake'
   'libsndfile'
@@ -46,17 +54,10 @@ makedepends=(
   'lv2'
   'juce'
 )
-optdepends=(
-  'jack: backend for standalone'
-  'alsa-lib: backend for standalone'
-  'vst3-host: for VST3 plugins'
-  'clap-host: for CLAP plugins'
-  'lv2-host: for LV2 plugins'
-)
-options=('!lto' 'debug') # LTO disabled due to crashes at application startup
-_commit='d3568a9ae6c8555590e06e55ed9cc6965a939f91'
+options=('!lto') # LTO disabled due to crashes at application startup
+_commit='bb8dd2b398cfa8d6d1a20daf7dee2cb4e8097dbf'
 source=(
-  "$pkgname::git+https://github.com/surge-synthesizer/surge#commit=$_commit"
+  "$pkgbase::git+https://github.com/surge-synthesizer/surge#commit=$_commit"
   'improve-reproducibility.patch'
   'devendor-libs.patch'
   'fix-lv2-ftbfs.patch'
@@ -67,6 +68,7 @@ source=(
   'github.com-surge-synthesizer-sst-cpputils::git+https://github.com/surge-synthesizer/sst-cpputils'
   'github.com-surge-synthesizer-sst-filters::git+https://github.com/surge-synthesizer/sst-filters'
   'github.com-surge-synthesizer-sst-waveshapers::git+https://github.com/surge-synthesizer/sst-waveshapers'
+  'github.com-surge-synthesizer-pffft::git+https://github.com/surge-synthesizer/pffft'
   'github.com-free-audio-clap::git+https://github.com/free-audio/clap'
   'github.com-free-audio-clap-helpers::git+https://github.com/free-audio/clap-helpers'
   'github.com-free-audio-clap-juce-extensions::git+https://github.com/free-audio/clap-juce-extensions'
@@ -79,8 +81,9 @@ source=(
 )
 b2sums=('SKIP'
         '6e71b56ffde699319def99e03637d9c3fb6197a6e0637b9f44b52a9207a8e06c8d482c05cdd711ec2c5901f403381dda70e786bca6b56cce14dc449325f24761'
-        '6bbeef320c380fb8bf9339add847bf7db237a2f93f544c2237e2d51ef9a1f497916539ace523c9b0911acabc755d872d5318170887aa62b27654eee40de6b693'
+        '35ae92a5363334901810d801238ab9e655c2db5695d085bbc431291ef107c5726d2aa919de77fba154ab63b3875df772cc5fd1531c0adcb9215cac99500ba832'
         'c43e5a1b9605243be07ab3903885836a2199787f0c7a8dc6ae2be9d8d4a91bcf07fde520c3440f1be425194476065cb287b99446b144c5cd76d012fb0f10f35e'
+        'SKIP'
         'SKIP'
         'SKIP'
         'SKIP'
@@ -99,13 +102,13 @@ b2sums=('SKIP'
         'SKIP')
 
 pkgver() {
-  cd "$pkgname"
+  cd "$pkgbase"
 
   git describe --tags | sed 's/^release_xt_//'
 }
 
 prepare() {
-  cd "$pkgname"
+  cd "$pkgbase"
 
   # explicitly state which submodules to use,
   # omitting devendored & unused submodules
@@ -121,7 +124,8 @@ prepare() {
     libs/sst/sst-cpputils \
     libs/clap-juce-extensions \
     libs/sst/sst-filters \
-    libs/sst/sst-waveshapers
+    libs/sst/sst-waveshapers \
+    libs/pffft
 
   git config submodule.libs/tuning-library.url "$srcdir/github.com-surge-synthesizer-tuning-library"
   git config submodule.libs/simde.url "$srcdir/github.com-simd-everywhere-simde"
@@ -135,6 +139,7 @@ prepare() {
   git config submodule.libs/clap-juce-extensions.url "$srcdir/github.com-free-audio-clap-juce-extensions"
   git config submodule.libs/sst/sst-filters.url "$srcdir/github.com-surge-synthesizer-sst-filters"
   git config submodule.libs/sst/sst-waveshapers.url "$srcdir/github.com-surge-synthesizer-sst-waveshapers"
+  git config submodule.libs/pffft.url "$srcdir/github.com-surge-synthesizer-pffft"
 
   git -c protocol.file.allow=always submodule update
 
@@ -163,8 +168,12 @@ prepare() {
   rg --files-with-matches 'include "samplerate.h"' | xargs -I@ sed 's|"samplerate.h"|<samplerate.h>|g' -i @
 
   # add missing LV2 header
-  cd "$srcdir/github.com-lv2-porting-project-JUCE"
+  pushd "$srcdir/github.com-lv2-porting-project-JUCE"
   patch -p1 -i "$srcdir/fix-lv2-ftbfs.patch"
+  popd
+
+  # FTBFS due to GCC13
+  git cherry-pick --no-commit d2fba1c6ff02cbdfa9db2ce06508745c247629b5
 }
 
 build() {
@@ -174,7 +183,7 @@ build() {
 
   cmake \
     -B build \
-    -S "$pkgname" \
+    -S "$pkgbase" \
     -DCMAKE_INSTALL_PREFIX='/usr' \
     -DCMAKE_INSTALL_LIBDIR='/usr/lib' \
     -DCMAKE_BUILD_TYPE=Release \
@@ -186,7 +195,7 @@ build() {
   # build LV2 plugin
   cmake \
     -B build-lv2 \
-    -S "$pkgname" \
+    -S "$pkgbase" \
     -DCMAKE_INSTALL_PREFIX='/usr' \
     -DCMAKE_INSTALL_LIBDIR='/usr/lib' \
     -DCMAKE_BUILD_TYPE=Release \
@@ -198,17 +207,50 @@ build() {
   cmake --build build-lv2 --target surge-xt_LV2 surge-fx_LV2 --parallel
 }
 
-package() {
+package_surge-xt() {
+  depends=($pkgbase-{common,standalone,vst3,clap,lv2}=$pkgver)
+
+  # complete install, followed by…
   DESTDIR="$pkgdir" cmake --install build
 
-  # LV2 plugin
-  install -vd "$pkgdir/usr/lib/lv2"
-  cp -vr build-lv2/surge_xt_products/*.lv2 "$pkgdir/usr/lib/lv2"
+  # …moving items out for split packages…
+  mv "$pkgdir/usr/share/surge-xt" usr-share
+  mv "$pkgdir/usr/bin" usr-bin
+  mv "$pkgdir/usr/lib" usr-lib
 
-  cd "$pkgname"
+  # …then remove leftovers
+  rm -rvf "$pkgdir/usr"
+}
+
+package_surge-xt-common() {
+  pkgdesc='Common files for Surge XT'
+
+  install -vd "$pkgdir/usr/share/surge-xt"
+  mv usr-share/* "$pkgdir/usr/share/surge-xt"
+
+  cd "$pkgbase"
 
   # documentation
-  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" AUTHORS README.md doc/*
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgbase" AUTHORS README.md doc/*
+}
+
+package_surge-xt-standalone() {
+  pkgdesc+=' - standalone'
+  depends=(
+    "surge-xt-common=$pkgver"
+    'hicolor-icon-theme'
+    "${_common_depends[@]}"
+  )
+  optdepends=(
+    'jack: audio backend'
+    'alsa-lib: audio backend'
+  )
+
+  # binaries
+  install -vd "$pkgdir/usr/bin"
+  mv usr-bin/* "$pkgdir/usr/bin"
+
+  cd "$pkgbase"
 
   # application icons & desktop files
   install -vd "$pkgdir/usr/share/"{applications,icons}
@@ -216,4 +258,43 @@ package() {
   cp -r assets/icons/hicolor "$pkgdir/usr/share/icons"
   cp -r assets/icons/scalable "$pkgdir/usr/share/icons/hicolor"
   install -vDm644 -t "$pkgdir/usr/share/applications" assets/applications/*.desktop
+}
+
+package_surge-xt-vst3(){
+  pkgdesc+=' - VST3 plugin'
+  groups+=('vst3-plugins')
+  depends=(
+    "surge-xt-common=$pkgver"
+    "${_common_depends[@]}"
+    'vst3-host'
+  )
+
+  install -vd "$pkgdir/usr/lib"
+  mv usr-lib/vst3 "$pkgdir/usr/lib"
+}
+
+package_surge-xt-clap(){
+  pkgdesc+=' - CLAP plugin'
+  groups+=('clap-plugins')
+  depends=(
+    "surge-xt-common=$pkgver"
+    "${_common_depends[@]}"
+    'clap-host'
+  )
+
+  install -vd "$pkgdir/usr/lib"
+  mv usr-lib/clap "$pkgdir/usr/lib"
+}
+
+package_surge-xt-lv2(){
+  pkgdesc+=' - LV2 plugin'
+  groups+=('lv2-plugins')
+  depends=(
+    "surge-xt-common=$pkgver"
+    "${_common_depends[@]}"
+    'lv2-host'
+  )
+
+  install -vd "$pkgdir/usr/lib/lv2"
+  cp -vr build-lv2/surge_xt_products/*.lv2 "$pkgdir/usr/lib/lv2"
 }
